@@ -1,13 +1,5 @@
 #!/bin/bash
 
-# Mostrar el nombre del dominio en letras grandes
-if ! command -v figlet &> /dev/null; then
-    echo "El comando 'figlet' no está instalado. Instalando..."
-    sudo apt install -y figlet
-fi
-
-figlet PCCURICO.CL
-
 # Función para mostrar mensajes de información
 msg_info() {
     echo -e "\n\033[1;34mINFO:\033[0m $1"
@@ -35,76 +27,32 @@ install_if_missing() {
     fi
 }
 
-# Instalar whiptail si no está instalado
+# 1. Instalar dependencias obligatorias
+msg_info "Instalando dependencias obligatorias..."
+install_if_missing "figlet"
 install_if_missing "whiptail"
+install_if_missing "openjdk-11-jdk"
+install_if_missing "mysql-client"
+install_if_missing "ufw"
 
-# Función para mostrar progreso
-show_progress() {
-    echo -n "Progreso: "
-    for i in $(seq 1 10); do
-        sleep 0.1
-        echo -n "#"
-    done
-    echo ""
-}
-
-# Función para desinstalar un servicio
-uninstall_service() {
-    msg_info "Desinstalando $1..."
-    show_progress
-    sudo apt purge -y $1
-    msg_ok "$1 ha sido desinstalado."
-}
-
-# Función para desinstalar Traccar
-uninstall_traccar() {
-    msg_info "Deteniendo el servicio de Traccar..."
-    show_progress
-    sudo systemctl stop traccar
-    msg_ok "Servicio de Traccar detenido."
-
-    msg_info "Deshabilitando el servicio de Traccar..."
-    show_progress
-    sudo systemctl disable traccar
-    msg_ok "Servicio de Traccar deshabilitado."
-
-    msg_info "Eliminando el archivo del servicio de Traccar..."
-    show_progress
-    sudo rm /etc/systemd/system/traccar.service
-    sudo systemctl daemon-reload
-    msg_ok "Archivo del servicio de Traccar eliminado."
-
-    msg_info "Eliminando el directorio de Traccar..."
-    show_progress
-    sudo rm -R /opt/traccar
-    msg_ok "Directorio de Traccar eliminado."
-}
-
-# Función para manejar la instalación o desinstalación de un servicio
-handle_service() {
-    local SERVICE_NAME=$1
-    local ACTION=$2
-
-    if [[ "$ACTION" == "install" ]]; then
-        install_if_missing "$SERVICE_NAME"
-    elif [[ "$ACTION" == "uninstall" ]]; then
-        if [[ "$SERVICE_NAME" == "traccar" ]]; then
-            uninstall_traccar
-        else
-            uninstall_service "$SERVICE_NAME"
-        fi
+# 2. Verificar servicios
+check_service() {
+    SERVICE_NAME=$1
+    if systemctl is-active --quiet $SERVICE_NAME; then
+        msg_ok "$SERVICE_NAME está activo."
+    else
+        msg_error "$SERVICE_NAME no está activo."
     fi
 }
 
-# Función principal para manejar la selección de servicios
+# 3. Abrir menú de manejo de servicios
 manage_services() {
     while true; do
-        # Preguntar qué servicios desea manejar
         SERVICE_CHOICES=$(whiptail --checklist "Selecciona los servicios que deseas manejar:" 15 60 4 \
-        "apache2" "Manejar servidor web Apache" OFF \
-        "mysql-server" "Manejar base de datos MySQL" OFF \
-        "certbot" "Manejar certificados SSL con Certbot" OFF \
-        "traccar" "Manejar Traccar" OFF 3>&1 1>&2 2>&3)
+        "traccar" "Manejar Traccar" OFF \
+        "apache2" "Manejar Apache" OFF \
+        "mysql-server" "Manejar MySQL" OFF \
+        "certbot" "Manejar Certbot" OFF 3>&1 1>&2 2>&3)
 
         # Comprobar si se canceló
         if [ $? -ne 0 ]; then
@@ -117,10 +65,9 @@ manage_services() {
 
         # Manejar cada servicio seleccionado
         for SERVICE in "${SELECTED_SERVICES[@]}"; do
-            # Preguntar al usuario si desea instalar o desinstalar
             ACTION=$(whiptail --radiolist "¿Qué deseas hacer con $SERVICE?" 15 60 2 \
-            "install" "Instalar" ON \
-            "uninstall" "Desinstalar" OFF 3>&1 1>&2 2>&3)
+            "uninstall" "Desinstalar" ON \
+            "install" "Instalar" OFF 3>&1 1>&2 2>&3)
 
             # Comprobar si se canceló
             if [ $? -ne 0 ]; then
@@ -128,15 +75,108 @@ manage_services() {
                 continue
             fi
 
-            # Manejar el servicio según la acción seleccionada
             handle_service "$SERVICE" "$ACTION"
             msg_ok "Acción completada para $SERVICE."
         done
-
-        # Mostrar el menú nuevamente automáticamente
-        msg_ok "Operaciones completadas. Mostrando el menú nuevamente..."
     done
 }
 
-# Ejecutar la función principal
-manage_services
+# Función para desinstalar un servicio
+uninstall_service() {
+    SERVICE_NAME=$1
+    msg_info "Desinstalando $SERVICE_NAME..."
+    sudo apt purge -y $SERVICE_NAME
+    msg_ok "$SERVICE_NAME ha sido desinstalado."
+}
+
+# Función para instalar servicios
+install_services() {
+    # 6. Instalar servicios seleccionados
+    msg_info "Instalando servicios..."
+    install_if_missing "traccar"
+    install_if_missing "apache2"
+    install_if_missing "mysql-server"
+    install_if_missing "mysql-client"
+    install_if_missing "mysql-secure"
+}
+
+# 7. Configurar firewall para los servicios
+configure_firewall() {
+    msg_info "Configurando el firewall..."
+    sudo ufw allow 8082/tcp
+    sudo ufw allow 80/tcp
+    sudo ufw allow 443/tcp
+    for port in {5001..5256}; do
+        sudo ufw allow $port/tcp
+    done
+    sudo ufw enable
+    msg_ok "Firewall configurado."
+}
+
+# 8. Configurar instalación de Traccar
+configure_traccar() {
+    msg_info "Configurando Traccar..."
+    DB_USER=$(whiptail --inputbox "Introduce el usuario de la base de datos:" 8 39 --title "Usuario de la Base de Datos" 3>&1 1>&2 2>&3)
+    DB_PASSWORD=$(whiptail --passwordbox "Introduce la contraseña de la base de datos:" 8 39 --title "Contraseña de la Base de Datos" 3>&1 1>&2 2>&3)
+    DB_NAME=$(whiptail --inputbox "Introduce el nombre de la base de datos:" 8 39 --title "Nombre de la Base de Datos" 3>&1 1>&2 2>&3)
+
+    # Crear archivo traccar.xml
+    cat <<EOL | sudo tee /opt/traccar/conf/traccar.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM 'http://java.sun.com/dtd/properties.dtd'>
+<properties>
+
+    <entry key='database.driver'>com.mysql.cj.jdbc.Driver</entry>
+    <entry key='database.url'>jdbc:mysql://localhost/$DB_NAME?zeroDateTimeBehavior=round&amp;serverTimezone=UTC&amp;allowPublicKeyRetrieval=true&amp;useSSL=false&amp;allowMultiQueries=true&amp;autoReconnect=true&amp;useUnicode=yes&amp;characterEncoding=UTF-8&amp;sessionVariables=sql_mode=''</entry>
+    <entry key='database.user'>${DB_USER}</entry>
+    <entry key='database.password'>${DB_PASSWORD}</entry>
+
+</properties>
+EOL
+
+    msg_ok "Archivo traccar.xml configurado."
+}
+
+# Configuración de SSL
+configure_ssl() {
+    SSL_CERT=$(whiptail --inputbox "Introduce la ruta del certificado SSL (crt):" 8 39 --title "Certificado SSL" 3>&1 1>&2 2>&3)
+    SSL_KEY=$(whiptail --inputbox "Introduce la ruta de la clave SSL (key):" 8 39 --title "Clave SSL" 3>&1 1>&2 2>&3)
+
+    if [[ -f "$SSL_CERT" && -f "$SSL_KEY" ]]; then
+        sudo cp "$SSL_CERT" /etc/ssl/certs/
+        sudo cp "$SSL_KEY" /etc/ssl/private/
+        msg_ok "Certificado y clave SSL copiados correctamente."
+    else
+        msg_error "Los archivos de certificado o clave no existen."
+    fi
+}
+
+# Iniciar todos los servicios
+start_services() {
+    msg_info "Iniciando servicios..."
+    for service in traccar apache2 mysql; do
+        sudo systemctl start $service
+        msg_ok "$service iniciado."
+    done
+}
+
+# Ejecutar las funciones en orden
+install_services
+configure_firewall
+configure_traccar
+configure_ssl
+start_services
+
+# Mostrar todos los datos de la conexión
+msg_ok "Instalación y configuración completadas."
+msg_info "Parámetros de conexión a la base de datos:"
+msg_info "Usuario: $DB_USER"
+msg_info "Contraseña: $DB_PASSWORD"
+msg_info "Nombre de la base de datos: $DB_NAME"
+msg_info "Traccar configurado en: http://<tu-ip>:8082"
+
+# Comprobar el estado de los servicios
+check_service "traccar"
+check_service "apache2"
+check_service "mysql"
+
