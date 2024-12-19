@@ -121,14 +121,16 @@ uninstall_traccar() {
     msg_info "Desinstalando Traccar..."
     sudo systemctl stop traccar
     sudo systemctl disable traccar
+    sudo rm /etc/systemd/system/traccar.service
+    sudo systemctl daemon-reload
     sudo rm -rf /opt/traccar
-    sudo rm -rf /etc/systemd/system/traccar.service
     msg_ok "Traccar ha sido desinstalado."
 }
 
 # Función para instalar Apache2
 install_apache() {
     install_if_missing "apache2"
+    sudo apt install -y apache2
     msg_ok "Apache2 ha sido instalado."
 }
 
