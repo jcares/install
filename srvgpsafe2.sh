@@ -133,6 +133,14 @@ install_apache() {
     sudo apt install -y apache2
     msg_ok "Apache2 ha sido instalado."
 }
+# Función para desinstalar Apache2
+uninstall_apache() {
+    msg_info "Desinstalando Apache2..."
+    sudo systemctl stop apache2
+    sudo systemctl disable apache2
+    sudo apt remove --purge -y apache2
+    msg_ok "Apache2 ha sido desinstalado."
+}
 
 # Función principal del menú
 main_menu() {
@@ -149,7 +157,8 @@ main_menu() {
         echo "1. Instalar Traccar"
         echo "2. Desinstalar Traccar"
         echo "3. Instalar Apache2"
-        echo "4. Salir"
+        echo "4. Desinstalar Apache2"
+        echo "5. Salir"
         read -p "Selecciona una opción: " OPTION
 
         case $OPTION in
@@ -165,6 +174,9 @@ main_menu() {
                 install_apache
                 ;;
             4)
+                uninstall_apache
+                ;;
+            5)
                 msg_ok "Saliendo."
                 exit 0
                 ;;
