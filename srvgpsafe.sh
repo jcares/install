@@ -36,7 +36,7 @@ install_if_missing() {
 # Función para desinstalar un servicio
 uninstall_service() {
     msg_info "Desinstalando $1..."
-    sudo apt remove --purge -y $1
+    sudo apt purge -y $1
     msg_ok "$1 ha sido desinstalado."
 }
 
@@ -92,21 +92,21 @@ install_traccar() {
     msg_ok "Traccar v${RELEASE} instalado y en ejecución."
 }
 
-# Instalar Traccar primero
-install_traccar
-
 # Detectar dependencias
 msg_info "Detectando dependencias..."
 install_if_missing curl
 install_if_missing sudo
 install_if_missing mc
-install_if_missing unzip
+install_if_missing apache2
+install_if_missing mysql
+install_if_missing traccar
 
-# Preguntar qué servicios desea desinstalar si se detecta alguno ya instalado
+# Preguntar qué servicios desea desinstalar
 UNINSTALL_SERVICES=$(whiptail --checklist "Selecciona los servicios que deseas desinstalar:" 15 60 4 \
 "Apache" "Desinstalar servidor web Apache" OFF \
 "MySQL" "Desinstalar base de datos MySQL" OFF \
-"Certbot" "Desinstalar certificados SSL con Certbot" OFF 3>&1 1>&2 2>&3)
+"Certbot" "Desinstalar certificados SSL con Certbot" OFF \
+"Traccar" "Desinstalar Traccar" OFF 3>&1 1>&2 2>&3)
 
 # Comprobar si se canceló
 if [ $? -ne 0 ]; then
@@ -138,9 +138,19 @@ else
                     msg_info "Certbot no está instalado."
                 fi
                 ;;
+            "Traccar")
+                if systemctl is-active --quiet traccar; then
+                    uninstall_service traccar
+                else
+                    msg_info "Traccar no está instalado."
+                fi
+                ;;
         esac
     done
 fi
+
+# Instalar Traccar primero
+install_traccar
 
 # Preguntar qué servicios desea instalar
 msg_info "Selecciona los servicios que deseas instalar:"
