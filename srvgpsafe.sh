@@ -25,7 +25,7 @@ msg_error() {
 
 # Función para instalar un paquete si no está instalado
 install_if_missing() {
-    if ! command -v $1 &> /dev/null; then
+    if ! dpkg -l | grep -q "^ii  $1"; then
         msg_info "Instalando $1..."
         sudo apt install -y $1
     else
@@ -97,9 +97,7 @@ msg_info "Detectando dependencias..."
 install_if_missing curl
 install_if_missing sudo
 install_if_missing mc
-install_if_missing apache2
-install_if_missing mysql
-install_if_missing traccar
+install_if_missing unzip
 
 # Preguntar qué servicios desea desinstalar
 UNINSTALL_SERVICES=$(whiptail --checklist "Selecciona los servicios que deseas desinstalar:" 15 60 4 \
@@ -118,32 +116,16 @@ else
     for SERVICE in "${UNSELECTED_SERVICES[@]}"; do
         case $SERVICE in
             "Apache")
-                if systemctl is-active --quiet apache2; then
-                    uninstall_service apache2
-                else
-                    msg_info "Apache no está instalado."
-                fi
+                uninstall_service apache2
                 ;;
             "MySQL")
-                if systemctl is-active --quiet mysql; then
-                    uninstall_service mysql-server
-                else
-                    msg_info "MySQL no está instalado."
-                fi
+                uninstall_service mysql-server
                 ;;
             "Certbot")
-                if systemctl is-active --quiet certbot; then
-                    uninstall_service certbot
-                else
-                    msg_info "Certbot no está instalado."
-                fi
+                uninstall_service certbot
                 ;;
             "Traccar")
-                if systemctl is-active --quiet traccar; then
-                    uninstall_service traccar
-                else
-                    msg_info "Traccar no está instalado."
-                fi
+                uninstall_service traccar
                 ;;
         esac
     done
@@ -153,7 +135,6 @@ fi
 install_traccar
 
 # Preguntar qué servicios desea instalar
-msg_info "Selecciona los servicios que deseas instalar:"
 SERVICE_CHOICES=$(whiptail --checklist "Selecciona los servicios que deseas instalar:" 15 60 4 \
 "Apache" "Instalar servidor web Apache" OFF \
 "MySQL" "Instalar base de datos MySQL" OFF \
@@ -169,25 +150,13 @@ else
     for SERVICE in "${SELECTED_SERVICES[@]}"; do
         case $SERVICE in
             "Apache")
-                if systemctl is-active --quiet apache2; then
-                    msg_info "Apache ya está instalado."
-                else
-                    install_if_missing apache2
-                fi
+                install_if_missing apache2
                 ;;
             "MySQL")
-                if systemctl is-active --quiet mysql; then
-                    msg_info "MySQL ya está instalado."
-                else
-                    install_if_missing mysql-server
-                fi
+                install_if_missing mysql-server
                 ;;
             "Certbot")
-                if systemctl is-active --quiet certbot; then
-                    msg_info "Certbot ya está instalado."
-                else
-                    install_if_missing certbot
-                fi
+                install_if_missing certbot
                 ;;
         esac
     done
