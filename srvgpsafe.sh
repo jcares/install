@@ -130,6 +130,7 @@ manage_services() {
 
             # Manejar el servicio según la acción seleccionada
             handle_service "$SERVICE" "$ACTION"
+            msg_ok "Acción completada para $SERVICE."
         done
 
         # Mostrar el menú nuevamente automáticamente
