@@ -1,4 +1,11 @@
 #!/bin/bash
+# Mostrar el nombre del dominio en letras grandes
+if ! command -v figlet &> /dev/null; then
+    echo "El comando 'figlet' no está instalado. Instalando..."
+    sudo apt install -y figlet
+fi
+
+figlet PCCURICO.CL
 
 # Función para mostrar mensajes de información
 msg_info() {
