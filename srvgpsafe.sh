@@ -37,20 +37,20 @@ install_if_missing() {
 # Instalar whiptail si no está instalado
 install_if_missing "whiptail"
 
-# Función para instalar un paquete si no está instalado
-install_if_missing() {
-    if ! dpkg -l | grep -q "^ii  $1"; then
-        msg_info "Instalando $1..."
-        sudo apt install -y $1
-        msg_ok "$1 ha sido instalado."
-    else
-        msg_ok "$1 ya está instalado."
-    fi
+# Función para mostrar progreso
+show_progress() {
+    echo -n "Progreso: "
+    for i in $(seq 1 10); do
+        sleep 0.1
+        echo -n "#"
+    done
+    echo ""
 }
 
 # Función para desinstalar un servicio
 uninstall_service() {
     msg_info "Desinstalando $1..."
+    show_progress
     sudo apt purge -y $1
     msg_ok "$1 ha sido desinstalado."
 }
@@ -58,19 +58,23 @@ uninstall_service() {
 # Función para desinstalar Traccar
 uninstall_traccar() {
     msg_info "Deteniendo el servicio de Traccar..."
+    show_progress
     sudo systemctl stop traccar
     msg_ok "Servicio de Traccar detenido."
 
     msg_info "Deshabilitando el servicio de Traccar..."
+    show_progress
     sudo systemctl disable traccar
     msg_ok "Servicio de Traccar deshabilitado."
 
     msg_info "Eliminando el archivo del servicio de Traccar..."
+    show_progress
     sudo rm /etc/systemd/system/traccar.service
     sudo systemctl daemon-reload
     msg_ok "Archivo del servicio de Traccar eliminado."
 
     msg_info "Eliminando el directorio de Traccar..."
+    show_progress
     sudo rm -R /opt/traccar
     msg_ok "Directorio de Traccar eliminado."
 }
