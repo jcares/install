@@ -1,11 +1,4 @@
 #!/bin/bash
-# Mostrar el nombre del dominio en letras grandes
-if ! command -v figlet &> /dev/null; then
-    echo "El comando 'figlet' no está instalado. Instalando..."
-    sudo apt install -y figlet
-fi
-
-figlet PCCURICO.CL
 
 # Función para mostrar mensajes de información
 msg_info() {
@@ -133,13 +126,28 @@ uninstall_traccar() {
     msg_ok "Traccar ha sido desinstalado."
 }
 
+# Función para instalar Apache2
+install_apache() {
+    install_if_missing "apache2"
+    msg_ok "Apache2 ha sido instalado."
+}
+
 # Función principal del menú
 main_menu() {
+    # Mostrar el nombre del dominio en letras grandes
+    if ! command -v figlet &> /dev/null; then
+        msg_info "El comando 'figlet' no está instalado. Instalando..."
+        sudo apt install -y figlet
+    fi
+
+    figlet PCCURICO.CL
+
     while true; do
-        echo -e "\n\033[1;36mMenú de Instalación de Traccar\033[0m"
+        echo -e "\n\033[1;36mMenú de Instalación de Traccar y Apache2\033[0m"
         echo "1. Instalar Traccar"
         echo "2. Desinstalar Traccar"
-        echo "3. Salir"
+        echo "3. Instalar Apache2"
+        echo "4. Salir"
         read -p "Selecciona una opción: " OPTION
 
         case $OPTION in
@@ -152,6 +160,9 @@ main_menu() {
                 uninstall_traccar
                 ;;
             3)
+                install_apache
+                ;;
+            4)
                 msg_ok "Saliendo."
                 exit 0
                 ;;
