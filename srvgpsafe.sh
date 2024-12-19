@@ -132,15 +132,9 @@ manage_services() {
             handle_service "$SERVICE" "$ACTION"
         done
 
-        # Preguntar si desea continuar manejando servicios
-        CONTINUE=$(whiptail --yesno "¿Deseas manejar más servicios?" 8 45 --title "Continuar" && echo "yes" || echo "no")
-
-        if [[ "$CONTINUE" == "no" ]]; then
-            break
-        fi
+        # Mostrar el menú nuevamente automáticamente
+        msg_ok "Operaciones completadas. Mostrando el menú nuevamente..."
     done
-
-    msg_ok "Operaciones completadas."
 }
 
 # Ejecutar la función principal
