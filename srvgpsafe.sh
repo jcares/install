@@ -31,6 +31,91 @@ install_if_missing() {
     fi
 }
 
+# Función para instalar Traccar
+install_traccar() {
+    RELEASE=$(curl -s https://api.github.com/repos/traccar/traccar/releases/latest | grep "tag_name" | awk '{print substr($2, 3, length($2)-4) }')
+    ZIP_FILE="/root/traccar-linux-64-${RELEASE}.zip"
+    ZIP_URL="https://github.com/traccar/traccar/releases/download/v${RELEASE}/traccar-linux-64-${RELEASE}.zip"
+
+    # Comprobar si el archivo ZIP ya existe y su tamaño
+    if [[ -f "$ZIP_FILE" ]]; then
+        LOCAL_SIZE=$(stat -c%s "$ZIP_FILE")
+        REMOTE_SIZE=$(curl -sI "$ZIP_URL" | grep -i Content-Length | awk '{print $2}' | tr -d '\r')
+
+        if [[ "$LOCAL_SIZE" -eq "$REMOTE_SIZE" ]]; then
+            msg_info "El archivo ZIP ya existe y tiene el mismo tamaño. Usando el archivo existente."
+        else
+            msg_info "El archivo ZIP existe pero el tamaño es diferente. Descargando nuevamente..."
+            wget -q --show-progress "$ZIP_URL" -O "$ZIP_FILE"
+        fi
+    else
+        msg_info "Descargando Traccar v${RELEASE}..."
+        wget -q --show-progress "$ZIP_URL" -O "$ZIP_FILE"
+    fi
+
+    # Verificar si el archivo es un zip válido
+    if ! unzip -t "$ZIP_FILE" &> /dev/null; then
+        msg_error "Error: El archivo descargado no es un zip válido."
+        exit 1
+    fi
+
+    # Descomprimir Traccar
+    sudo unzip -q "$ZIP_FILE" -d /root/
+    if [[ $? -ne 0 ]]; then
+        msg_error "Error al descomprimir Traccar."
+        exit 1
+    fi
+
+    # Mover y configurar Traccar
+    sudo chmod +x /root/traccar.run
+
+    msg_info "Ejecutando el instalador de Traccar..."
+    sudo /root/traccar.run &> /tmp/traccar_install.log
+
+    # Mostrar progreso de la instalación
+    if [[ $? -ne 0 ]]; then
+        msg_error "Error al ejecutar el instalador de Traccar."
+        exit 1
+    fi
+
+    # Habilitar y iniciar el servicio de Traccar
+    msg_info "Habilitando e iniciando el servicio de Traccar..."
+    sudo systemctl enable -q --now traccar
+    msg_ok "Traccar v${RELEASE} instalado y en ejecución."
+
+    TRACCAR_XML="/opt/traccar/conf/traccar.xml"
+
+    if [[ -f "$TRACCAR_XML" ]]; then
+        msg_info "Configurando $TRACCAR_XML..."
+
+        # Solicitar información de conexión a la base de datos
+        read -p "Ingresa la dirección de la base de datos (localhost para local): " DB_HOST
+        read -p "Ingresa el nombre de la base de datos: " DB_NAME
+        read -p "Ingresa el usuario de la base de datos: " DB_USER
+        read -sp "Ingresa la contraseña de la base de datos: " DB_PASS
+        echo
+
+        # Reescribir el archivo traccar.xml con los nuevos datos
+        sudo bash -c "cat > $TRACCAR_XML" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM 'http://java.sun.com/dtd/properties.dtd'>
+<properties>
+
+    <entry key='database.driver'>com.mysql.cj.jdbc.Driver</entry>
+    <entry key='database.url'>jdbc:mysql://$DB_HOST/$DB_NAME?zeroDateTimeBehavior=round&amp;serverTimezone=UTC&amp;allowPublicKeyRetrieval=true&amp;useSSL=false&amp;allowMultiQueries=true&amp;autoReconnect=true&amp;useUnicode=yes&amp;characterEncoding=UTF-8&amp;sessionVariables=sql_mode=''</entry>
+    <entry key='database.user'>$DB_USER</entry>
+    <entry key='database.password'>$DB_PASS</entry>
+
+</properties>
+EOF
+
+        msg_ok "Configuración de $TRACCAR_XML completada."
+    else
+        msg_error "No se encontró $TRACCAR_XML."
+        exit 1
+    fi
+}
+
 # 1. Instalar dependencias obligatorias
 msg_info "Instalando dependencias obligatorias..."
 install_if_missing "figlet"
@@ -39,76 +124,10 @@ install_if_missing "openjdk-11-jdk"
 install_if_missing "mysql-client"
 install_if_missing "ufw"
 
-# 2. Verificar servicios
-check_service() {
-    SERVICE_NAME=$1
-    if systemctl is-active --quiet $SERVICE_NAME; then
-        msg_ok "$SERVICE_NAME está activo."
-    else
-        msg_error "$SERVICE_NAME no está activo."
-    fi
-}
+# 2. Instalar Traccar
+install_traccar
 
-# 3. Abrir menú de manejo de servicios
-manage_services() {
-    while true; do
-        SERVICE_CHOICES=$(whiptail --checklist "Selecciona los servicios que deseas manejar:" 15 60 4 \
-        "traccar" "Manejar Traccar" OFF \
-        "apache2" "Manejar Apache" OFF \
-        "mysql-server" "Manejar MySQL" OFF \
-        "certbot" "Manejar Certbot" OFF 3>&1 1>&2 2>&3)
-
-        # Comprobar si se canceló
-        if [ $? -ne 0 ]; then
-            msg_info "No se realizarán cambios."
-            exit 0
-        fi
-
-        # Convertir la selección en un array
-        IFS='|' read -r -a SELECTED_SERVICES <<< "$SERVICE_CHOICES"
-
-        # Manejar cada servicio seleccionado
-        for SERVICE in "${SELECTED_SERVICES[@]}"; do
-            ACTION=$(whiptail --radiolist "¿Qué deseas hacer con $SERVICE?" 15 60 2 \
-            "uninstall" "Desinstalar" ON \
-            "install" "Instalar" OFF 3>&1 1>&2 2>&3)
-
-            # Comprobar si se canceló
-            if [ $? -ne 0 ]; then
-                msg_info "No se realizarán cambios para $SERVICE."
-                continue
-            fi
-
-            handle_service "$SERVICE" "$ACTION"
-            msg_ok "Acción completada para $SERVICE."
-        done
-    done
-}
-
-# Función para desinstalar un servicio
-uninstall_service() {
-    SERVICE_NAME=$1
-    msg_info "Desinstalando $SERVICE_NAME..."
-    if sudo apt purge -y $SERVICE_NAME; then
-        msg_ok "$SERVICE_NAME ha sido desinstalado."
-    else
-        msg_error "Error al desinstalar $SERVICE_NAME."
-        exit 1
-    fi
-}
-
-# Función para instalar servicios
-install_services() {
-    # 6. Instalar servicios seleccionados
-    msg_info "Instalando servicios..."
-    install_if_missing "traccar"
-    install_if_missing "apache2"
-    install_if_missing "mysql-server"
-    install_if_missing "mysql-client"
-    install_if_missing "mysql-secure"
-}
-
-# 7. Configurar firewall para los servicios
+# 3. Configurar firewall para los servicios
 configure_firewall() {
     sudo ufw allow 8082/tcp
     sudo ufw allow 80/tcp
@@ -119,86 +138,57 @@ configure_firewall() {
     sudo ufw enable
 }
 
-# 8. Configurar instalación de Traccar
-configure_traccar() {
-    msg_info "Configurando Traccar..."
-    DB_USER=$(whiptail --inputbox "Introduce el usuario de la base de datos:" 8 39 --title "Usuario de la Base de Datos" 3>&1 1>&2 2>&3)
-    DB_PASSWORD=$(whiptail --passwordbox "Introduce la contraseña de la base de datos:" 8 39 --title "Contraseña de la Base de Datos" 3>&1 1>&2 2>&3)
-    DB_NAME=$(whiptail --inputbox "Introduce el nombre de la base de datos:" 8 39 --title "Nombre de la Base de Datos" 3>&1 1>&2 2>&3)
+# Llamar a la función de configuración del firewall
+configure_firewall
 
-    # Crear archivo traccar.xml
-    cat <<EOL | sudo tee /opt/traccar/conf/traccar.xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE properties SYSTEM 'http://java.sun.com/dtd/properties.dtd'>
-<properties>
+# 4. Manejo de servicios
+manage_services() {
+    while true; do
+        echo -e "\n\033[1;36mManejo de Servicios de Traccar\033[0m"
+        echo "1. Iniciar Traccar"
+        echo "2. Detener Traccar"
+        echo "3. Reiniciar Traccar"
+        echo "4. Ver estado de Traccar"
+        echo "5. Salir"
+        read -p "Selecciona una opción: " OPTION
 
-    <entry key='database.driver'>com.mysql.cj.jdbc.Driver</entry>
-    <entry key='database.url'>jdbc:mysql://localhost/$DB_NAME?zeroDateTimeBehavior=round&amp;serverTimezone=UTC&amp;allowPublicKeyRetrieval=true&amp;useSSL=false&amp;allowMultiQueries=true&amp;autoReconnect=true&amp;useUnicode=yes&amp;characterEncoding=UTF-8&amp;sessionVariables=sql_mode=''</entry>
-    <entry key='database.user'>${DB_USER}</entry>
-    <entry key='database.password'>${DB_PASSWORD}</entry>
-
-</properties>
-EOL
-
-    msg_ok "Archivo traccar.xml configurado."
-}
-
-# Configuración de SSL
-configure_ssl() {
-    if (whiptail --yesno "¿Tienes certificados SSL existentes? (crt y key)" 8 60); then
-        SSL_CERT=$(whiptail --inputbox "Introduce la ruta del certificado SSL (crt):" 8 39 --title "Certificado SSL" 3>&1 1>&2 2>&3)
-        SSL_KEY=$(whiptail --inputbox "Introduce la ruta de la clave SSL (key):" 8 39 --title "Clave SSL" 3>&1 1>&2 2>&3)
-
-        if [[ -f "$SSL_CERT" && -f "$SSL_KEY" ]]; then
-            sudo cp "$SSL_CERT" /etc/ssl/certs/
-            sudo cp "$SSL_KEY" /etc/ssl/private/
-            msg_ok "Certificado y clave SSL copiados correctamente."
-        else
-            msg_error "Los archivos de certificado o clave no existen."
-            exit 1
-        fi
-    else
-        # Solicitar datos para crear nuevos certificados
-        DOMAIN_NAME=$(whiptail --inputbox "Introduce el nombre de dominio para el certificado:" 8 39 --title "Nombre de Dominio" 3>&1 1>&2 2>&3)
-        msg_info "Generando nuevos certificados SSL para $DOMAIN_NAME..."
-        if sudo certbot certonly --standalone -d "$DOMAIN_NAME"; then
-            msg_ok "Certificados SSL generados correctamente."
-        else
-            msg_error "Error al generar certificados SSL."
-            exit 1
-        fi
-    fi
-}
-
-# Iniciar todos los servicios
-start_services() {
-    msg_info "Iniciando servicios..."
-    for service in traccar apache2 mysql; do
-        if sudo systemctl start $service; then
-            msg_ok "$service iniciado."
-        else
-            msg_error "Error al iniciar $service."
-            exit 1
-        fi
+        case $OPTION in
+            1)
+                msg_info "Iniciando Traccar..."
+                sudo systemctl start traccar
+                msg_ok "Traccar iniciado."
+                ;;
+            2)
+                msg_info "Deteniendo Traccar..."
+                sudo systemctl stop traccar
+                msg_ok "Traccar detenido."
+                ;;
+            3)
+                msg_info "Reiniciando Traccar..."
+                sudo systemctl restart traccar
+                msg_ok "Traccar reiniciado."
+                ;;
+            4)
+                msg_info "Verificando estado de Traccar..."
+                if systemctl is-active --quiet traccar; then
+                    msg_ok "Traccar está activo."
+                else
+                    msg_error "Traccar no está activo."
+                fi
+                ;;
+            5)
+                msg_ok "Saliendo del manejo de servicios."
+                break
+                ;;
+            *)
+                msg_error "Opción no válida. Intenta de nuevo."
+                ;;
+        esac
     done
 }
 
-# Ejecutar las funciones en orden
-install_services
-configure_firewall
-configure_traccar
-configure_ssl
-start_services
+# Llamar a la función de manejo de servicios
+manage_services
 
-# Mostrar todos los datos de la conexión
+# Mostrar mensaje final
 msg_ok "Instalación y configuración completadas."
-msg_info "Parámetros de conexión a la base de datos:"
-msg_info "Usuario: $DB_USER"
-msg_info "Contraseña: $DB_PASSWORD"
-msg_info "Nombre de la base de datos: $DB_NAME"
-msg_info "Traccar configurado en: http://<tu-ip>:8082"
-
-# Comprobar el estado de los servicios
-check_service "traccar"
-check_service "apache2"
-check_service "mysql"
