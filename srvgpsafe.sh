@@ -41,6 +41,26 @@ uninstall_service() {
     msg_ok "$1 ha sido desinstalado."
 }
 
+# Función para desinstalar Traccar
+uninstall_traccar() {
+    msg_info "Deteniendo el servicio de Traccar..."
+    sudo systemctl stop traccar
+    msg_ok "Servicio de Traccar detenido."
+
+    msg_info "Deshabilitando el servicio de Traccar..."
+    sudo systemctl disable traccar
+    msg_ok "Servicio de Traccar deshabilitado."
+
+    msg_info "Eliminando el archivo del servicio de Traccar..."
+    sudo rm /etc/systemd/system/traccar.service
+    sudo systemctl daemon-reload
+    msg_ok "Archivo del servicio de Traccar eliminado."
+
+    msg_info "Eliminando el directorio de Traccar..."
+    sudo rm -R /opt/traccar
+    msg_ok "Directorio de Traccar eliminado."
+}
+
 # Función para manejar la instalación o desinstalación de un servicio
 handle_service() {
     local SERVICE_NAME=$1
@@ -49,7 +69,11 @@ handle_service() {
     if [[ "$ACTION" == "install" ]]; then
         install_if_missing "$SERVICE_NAME"
     elif [[ "$ACTION" == "uninstall" ]]; then
-        uninstall_service "$SERVICE_NAME"
+        if [[ "$SERVICE_NAME" == "Traccar" ]]; then
+            uninstall_traccar
+        else
+            uninstall_service "$SERVICE_NAME"
+        fi
     fi
 }
 
