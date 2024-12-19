@@ -28,6 +28,7 @@ install_if_missing() {
     if ! dpkg -l | grep -q "^ii  $1"; then
         msg_info "Instalando $1..."
         sudo apt install -y $1
+        msg_ok "$1 ha sido instalado."
     else
         msg_ok "$1 ya está instalado."
     fi
@@ -40,181 +41,49 @@ uninstall_service() {
     msg_ok "$1 ha sido desinstalado."
 }
 
-# Función para instalar Traccar
-install_traccar() {
-    RELEASE=$(curl -s https://api.github.com/repos/traccar/traccar/releases/latest | grep "tag_name" | awk '{print substr($2, 3, length($2)-4) }')
-    ZIP_FILE="/root/traccar-linux-64-${RELEASE}.zip"
-    ZIP_URL="https://github.com/traccar/traccar/releases/download/v${RELEASE}/traccar-linux-64-${RELEASE}.zip"
+# Función para manejar la instalación o desinstalación de un servicio
+handle_service() {
+    local SERVICE_NAME=$1
+    local ACTION=$2
 
-    # Comprobar si el archivo ZIP ya existe y su tamaño
-    if [[ -f "$ZIP_FILE" ]]; then
-        LOCAL_SIZE=$(stat -c%s "$ZIP_FILE")
-        REMOTE_SIZE=$(curl -sI "$ZIP_URL" | grep -i Content-Length | awk '{print $2}' | tr -d '\r')
-
-        if [[ "$LOCAL_SIZE" -eq "$REMOTE_SIZE" ]]; then
-            msg_info "El archivo ZIP ya existe y tiene el mismo tamaño. Usando el archivo existente."
-        else
-            msg_info "El archivo ZIP existe pero el tamaño es diferente. Eliminando archivo corrupto..."
-            rm -f "$ZIP_FILE"
-            msg_info "Descargando Traccar v${RELEASE}..."
-            wget -q --show-progress "$ZIP_URL" -O "$ZIP_FILE" || { msg_error "Error al descargar Traccar."; exit 1; }
-        fi
-    else
-        msg_info "Descargando Traccar v${RELEASE}..."
-        wget -q --show-progress "$ZIP_URL" -O "$ZIP_FILE" || { msg_error "Error al descargar Traccar."; exit 1; }
+    if [[ "$ACTION" == "install" ]]; then
+        install_if_missing "$SERVICE_NAME"
+    elif [[ "$ACTION" == "uninstall" ]]; then
+        uninstall_service "$SERVICE_NAME"
     fi
-
-    # Verificar si el archivo es un zip válido
-    if ! unzip -t "$ZIP_FILE" &> /dev/null; then
-        msg_error "Error: El archivo descargado no es un zip válido. Eliminando archivo..."
-        rm -f "$ZIP_FILE"
-        exit 1
-    fi
-
-    # Descomprimir Traccar
-    sudo unzip -q "$ZIP_FILE" -d /root/ || { msg_error "Error al descomprimir Traccar."; exit 1; }
-
-    # Mover y configurar Traccar
-    sudo chmod +x /root/traccar.run
-
-    msg_info "Ejecutando el instalador de Traccar..."
-    sudo /root/traccar.run &> /tmp/traccar_install.log
-
-    # Mostrar progreso de la instalación
-    if [[ $? -ne 0 ]]; then
-        msg_error "Error al ejecutar el instalador de Traccar."
-        exit 1
-    fi
-
-    # Habilitar y iniciar el servicio de Traccar
-    msg_info "Habilitando e iniciando el servicio de Traccar..."
-    sudo systemctl enable -q --now traccar
-    msg_ok "Traccar v${RELEASE} instalado y en ejecución."
 }
 
-# Detectar dependencias
-msg_info "Detectando dependencias..."
-install_if_missing curl
-install_if_missing sudo
-install_if_missing mc
-install_if_missing unzip
-
-# Preguntar qué servicios desea desinstalar
-UNINSTALL_SERVICES=$(whiptail --checklist "Selecciona los servicios que deseas desinstalar:" 15 60 4 \
-"Apache" "Desinstalar servidor web Apache" OFF \
-"MySQL" "Desinstalar base de datos MySQL" OFF \
-"Certbot" "Desinstalar certificados SSL con Certbot" OFF \
-"Traccar" "Desinstalar Traccar" OFF 3>&1 1>&2 2>&3)
+# Preguntar qué servicios desea manejar
+SERVICE_CHOICES=$(whiptail --checklist "Selecciona los servicios que deseas manejar:" 15 60 4 \
+"Apache" "Manejar servidor web Apache" OFF \
+"MySQL" "Manejar base de datos MySQL" OFF \
+"Certbot" "Manejar certificados SSL con Certbot" OFF \
+"Traccar" "Manejar Traccar" OFF 3>&1 1>&2 2>&3)
 
 # Comprobar si se canceló
 if [ $? -ne 0 ]; then
-    msg_info "No se desinstalarán servicios."
-else
-    # Convertir la selección en un array
-    IFS='|' read -r -a UNSELECTED_SERVICES <<< "$UNINSTALL_SERVICES"
-    
-    for SERVICE in "${UNSELECTED_SERVICES[@]}"; do
-        case $SERVICE in
-            "Apache")
-                uninstall_service apache2
-                ;;
-            "MySQL")
-                uninstall_service mysql-server
-                ;;
-            "Certbot")
-                uninstall_service certbot
-                ;;
-            "Traccar")
-                uninstall_service traccar
-                ;;
-        esac
-    done
+    msg_info "No se realizarán cambios."
+    exit 0
 fi
 
-# Instalar Traccar primero
-install_traccar
+# Convertir la selección en un array
+IFS='|' read -r -a SELECTED_SERVICES <<< "$SERVICE_CHOICES"
 
-# Preguntar qué servicios desea instalar
-SERVICE_CHOICES=$(whiptail --checklist "Selecciona los servicios que deseas instalar:" 15 60 4 \
-"Apache" "Instalar servidor web Apache" OFF \
-"MySQL" "Instalar base de datos MySQL" OFF \
-"Certbot" "Instalar certificados SSL con Certbot" OFF 3>&1 1>&2 2>&3)
-
-# Comprobar si se canceló
-if [ $? -ne 0 ]; then
-    msg_info "No se instalarán servicios."
-else
-    # Convertir la selección en un array
-    IFS='|' read -r -a SELECTED_SERVICES <<< "$SERVICE_CHOICES"
-    
-    for SERVICE in "${SELECTED_SERVICES[@]}"; do
-        case $SERVICE in
-            "Apache")
-                install_if_missing apache2
-                ;;
-            "MySQL")
-                install_if_missing mysql-server
-                ;;
-            "Certbot")
-                install_if_missing certbot
-                ;;
-        esac
-    done
-fi
-
-# Configurar el firewall
-msg_info "Configurando el firewall para permitir tráfico en puertos 80 y 443."
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw reload
-
-# Solicitar datos al usuario para Certbot
-if [[ " ${SELECTED_SERVICES[@]} " =~ " Certbot " ]]; then
-    read -p "Ingresa el dominio (ejemplo: clientes.gpsafechile.cl): " DOMAIN
-    read -p "Ingresa tu correo electrónico para Let's Encrypt: " EMAIL
-
-    # Obtener el certificado SSL
-    msg_info "Obteniendo certificado SSL para $DOMAIN."
-    sudo certbot certonly --standalone -d $DOMAIN --non-interactive --agree-tos --email $EMAIL
-
-    # Verificar si el certificado se obtuvo correctamente
-    if [ $? -eq 0 ]; then
-        msg_ok "Certificado SSL obtenido exitosamente."
-    else
-        msg_info "Error al obtener el certificado SSL. Verifica la configuración del dominio y el firewall."
-        exit 1
-    fi
-fi
-
-# Resumen de la configuración
-msg_info "Resumen de la configuración:"
-echo "------------------------------------"
-echo "Servicios instalados:"
-
+# Manejar cada servicio seleccionado
 for SERVICE in "${SELECTED_SERVICES[@]}"; do
-    case $SERVICE in
-        "Apache")
-            echo "- Apache (httpd) instalado."
-            ;;
-        "MySQL")
-            echo "- MySQL instalado."
-            ;;
-        "Certbot")
-            echo "- Certbot instalado."
-            ;;
-    esac
+    # Preguntar al usuario si desea instalar o desinstalar
+    ACTION=$(whiptail --radiolist "¿Qué deseas hacer con $SERVICE?" 15 60 2 \
+    "install" "Instalar" ON \
+    "uninstall" "Desinstalar" OFF 3>&1 1>&2 2>&3)
+
+    # Comprobar si se canceló
+    if [ $? -ne 0 ]; then
+        msg_info "No se realizarán cambios para $SERVICE."
+        continue
+    fi
+
+    # Manejar el servicio según la acción seleccionada
+    handle_service "$SERVICE" "$ACTION"
 done
 
-echo "------------------------------------"
-echo "Información de conexión:"
-echo "Dominio: $DOMAIN"
-echo "Correo electrónico: $EMAIL"
-echo "Usuario de base de datos: $(whoami)"  # Usuario registrado
-echo "------------------------------------"
-
-msg_ok "Instalación y configuración completadas."
-
-# Limpiar archivos temporales
-msg_info "Limpiando archivos temporales..."
-rm -rf "/root/traccar-linux-64-*.zip"
-msg_ok "Archivos temporales limpiados."
+msg_ok "Operaciones completadas."
