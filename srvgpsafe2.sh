@@ -133,6 +133,7 @@ install_apache() {
     sudo apt install -y apache2
     msg_ok "Apache2 ha sido instalado."
 }
+
 # Función para desinstalar Apache2
 uninstall_apache() {
     msg_info "Desinstalando Apache2..."
