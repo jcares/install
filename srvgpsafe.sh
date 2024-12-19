@@ -20,8 +20,12 @@ install_if_missing() {
     PACKAGE_NAME=$1
     if ! dpkg -l | grep -q "^ii  $PACKAGE_NAME"; then
         msg_info "Instalando $PACKAGE_NAME..."
-        sudo apt install -y $PACKAGE_NAME
-        msg_ok "$PACKAGE_NAME ha sido instalado."
+        if sudo apt install -y $PACKAGE_NAME; then
+            msg_ok "$PACKAGE_NAME ha sido instalado."
+        else
+            msg_error "Error al instalar $PACKAGE_NAME."
+            exit 1
+        fi
     else
         msg_ok "$PACKAGE_NAME ya está instalado."
     fi
@@ -85,8 +89,12 @@ manage_services() {
 uninstall_service() {
     SERVICE_NAME=$1
     msg_info "Desinstalando $SERVICE_NAME..."
-    sudo apt purge -y $SERVICE_NAME
-    msg_ok "$SERVICE_NAME ha sido desinstalado."
+    if sudo apt purge -y $SERVICE_NAME; then
+        msg_ok "$SERVICE_NAME ha sido desinstalado."
+    else
+        msg_error "Error al desinstalar $SERVICE_NAME."
+        exit 1
+    fi
 }
 
 # Función para instalar servicios
@@ -102,7 +110,6 @@ install_services() {
 
 # 7. Configurar firewall para los servicios
 configure_firewall() {
-    msg_info "Configurando el firewall..."
     sudo ufw allow 8082/tcp
     sudo ufw allow 80/tcp
     sudo ufw allow 443/tcp
@@ -110,7 +117,6 @@ configure_firewall() {
         sudo ufw allow $port/tcp
     done
     sudo ufw enable
-    msg_ok "Firewall configurado."
 }
 
 # 8. Configurar instalación de Traccar
@@ -139,15 +145,28 @@ EOL
 
 # Configuración de SSL
 configure_ssl() {
-    SSL_CERT=$(whiptail --inputbox "Introduce la ruta del certificado SSL (crt):" 8 39 --title "Certificado SSL" 3>&1 1>&2 2>&3)
-    SSL_KEY=$(whiptail --inputbox "Introduce la ruta de la clave SSL (key):" 8 39 --title "Clave SSL" 3>&1 1>&2 2>&3)
+    if (whiptail --yesno "¿Tienes certificados SSL existentes? (crt y key)" 8 60); then
+        SSL_CERT=$(whiptail --inputbox "Introduce la ruta del certificado SSL (crt):" 8 39 --title "Certificado SSL" 3>&1 1>&2 2>&3)
+        SSL_KEY=$(whiptail --inputbox "Introduce la ruta de la clave SSL (key):" 8 39 --title "Clave SSL" 3>&1 1>&2 2>&3)
 
-    if [[ -f "$SSL_CERT" && -f "$SSL_KEY" ]]; then
-        sudo cp "$SSL_CERT" /etc/ssl/certs/
-        sudo cp "$SSL_KEY" /etc/ssl/private/
-        msg_ok "Certificado y clave SSL copiados correctamente."
+        if [[ -f "$SSL_CERT" && -f "$SSL_KEY" ]]; then
+            sudo cp "$SSL_CERT" /etc/ssl/certs/
+            sudo cp "$SSL_KEY" /etc/ssl/private/
+            msg_ok "Certificado y clave SSL copiados correctamente."
+        else
+            msg_error "Los archivos de certificado o clave no existen."
+            exit 1
+        fi
     else
-        msg_error "Los archivos de certificado o clave no existen."
+        # Solicitar datos para crear nuevos certificados
+        DOMAIN_NAME=$(whiptail --inputbox "Introduce el nombre de dominio para el certificado:" 8 39 --title "Nombre de Dominio" 3>&1 1>&2 2>&3)
+        msg_info "Generando nuevos certificados SSL para $DOMAIN_NAME..."
+        if sudo certbot certonly --standalone -d "$DOMAIN_NAME"; then
+            msg_ok "Certificados SSL generados correctamente."
+        else
+            msg_error "Error al generar certificados SSL."
+            exit 1
+        fi
     fi
 }
 
@@ -155,8 +174,12 @@ configure_ssl() {
 start_services() {
     msg_info "Iniciando servicios..."
     for service in traccar apache2 mysql; do
-        sudo systemctl start $service
-        msg_ok "$service iniciado."
+        if sudo systemctl start $service; then
+            msg_ok "$service iniciado."
+        else
+            msg_error "Error al iniciar $service."
+            exit 1
+        fi
     done
 }
 
@@ -179,4 +202,3 @@ msg_info "Traccar configurado en: http://<tu-ip>:8082"
 check_service "traccar"
 check_service "apache2"
 check_service "mysql"
-
