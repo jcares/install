@@ -25,12 +25,13 @@ msg_error() {
 
 # Función para instalar un paquete si no está instalado
 install_if_missing() {
-    if ! dpkg -l | grep -q "^ii  $1"; then
-        msg_info "Instalando $1..."
-        sudo apt install -y $1
-        msg_ok "$1 ha sido instalado."
+    PACKAGE_NAME=$1
+    if ! dpkg -l | grep -q "^ii  $PACKAGE_NAME"; then
+        msg_info "Instalando $PACKAGE_NAME..."
+        sudo apt install -y $PACKAGE_NAME
+        msg_ok "$PACKAGE_NAME ha sido instalado."
     else
-        msg_ok "$1 ya está instalado."
+        msg_ok "$PACKAGE_NAME ya está instalado."
     fi
 }
 
@@ -87,7 +88,7 @@ handle_service() {
     if [[ "$ACTION" == "install" ]]; then
         install_if_missing "$SERVICE_NAME"
     elif [[ "$ACTION" == "uninstall" ]]; then
-        if [[ "$SERVICE_NAME" == "Traccar" ]]; then
+        if [[ "$SERVICE_NAME" == "traccar" ]]; then
             uninstall_traccar
         else
             uninstall_service "$SERVICE_NAME"
@@ -100,10 +101,10 @@ manage_services() {
     while true; do
         # Preguntar qué servicios desea manejar
         SERVICE_CHOICES=$(whiptail --checklist "Selecciona los servicios que deseas manejar:" 15 60 4 \
-        "Apache" "Manejar servidor web Apache" OFF \
-        "MySQL" "Manejar base de datos MySQL" OFF \
-        "Certbot" "Manejar certificados SSL con Certbot" OFF \
-        "Traccar" "Manejar Traccar" OFF 3>&1 1>&2 2>&3)
+        "apache2" "Manejar servidor web Apache" OFF \
+        "mysql-server" "Manejar base de datos MySQL" OFF \
+        "certbot" "Manejar certificados SSL con Certbot" OFF \
+        "traccar" "Manejar Traccar" OFF 3>&1 1>&2 2>&3)
 
         # Comprobar si se canceló
         if [ $? -ne 0 ]; then
