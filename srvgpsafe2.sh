@@ -165,7 +165,7 @@ main_menu() {
         sudo apt install -y figlet
     fi
 
-    figlet PCCURICO.CL
+    figlet GPSafe by PC-CURICO
 
     while true; do
         echo -e "\n\033[1;36mMenú de Instalación de Traccar y Apache2\033[0m"
