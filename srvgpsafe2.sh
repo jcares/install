@@ -143,6 +143,20 @@ uninstall_apache() {
     msg_ok "Apache2 ha sido desinstalado."
 }
 
+# Función para instalar todo
+install_all() {
+    install_if_missing "curl"
+    install_if_missing "unzip"
+    install_traccar
+    install_apache
+}
+
+# Función para desinstalar todo
+uninstall_all() {
+    uninstall_traccar
+    uninstall_apache
+}
+
 # Función principal del menú
 main_menu() {
     # Mostrar el nombre del dominio en letras grandes
@@ -159,7 +173,9 @@ main_menu() {
         echo "2. Desinstalar Traccar"
         echo "3. Instalar Apache2"
         echo "4. Desinstalar Apache2"
-        echo "5. Salir"
+        echo "5. Instalar Todo"
+        echo "6. Desinstalar Todo"
+        echo "7. Salir"
         read -p "Selecciona una opción: " OPTION
 
         case $OPTION in
@@ -178,6 +194,12 @@ main_menu() {
                 uninstall_apache
                 ;;
             5)
+                install_all
+                ;;
+            6)
+                uninstall_all
+                ;;
+            7)
                 msg_ok "Saliendo."
                 exit 0
                 ;;
