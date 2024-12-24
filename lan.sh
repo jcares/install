@@ -2,6 +2,7 @@
 
 # Cambiar permisos para hacer el script ejecutable
 chmod +x $0
+sudo apt install figlet -y 
 
 # Función para mostrar el mensaje en letras grandes usando figlet
 show_title() {
@@ -85,6 +86,25 @@ repair_repos() {
     apt update
 }
 
+# Función para arreglar repositorios duplicados
+fix_duplicate_repos() {
+    echo "Arreglando repositorios duplicados..."
+    local files=(
+        "/etc/apt/sources.list.d/pve-install-repo.list"
+        "/etc/apt/sources.list.d/pve-no-subscription.list"
+    )
+
+    for file in "${files[@]}"; do
+        if [ -f "$file" ]; then
+            echo "Revisando $file..."
+            # Comentar líneas duplicadas
+            awk '!seen[$0]++' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
+        fi
+    done
+
+    echo "Repositorios duplicados arreglados."
+}
+
 # Mostrar el título
 show_title
 
@@ -94,7 +114,8 @@ while true; do
     echo "1) Mostrar configuración de red"
     echo "2) Editar configuración de red"
     echo "3) Reparar repositorios"
-    echo "4) Salir"
+    echo "4) Arreglar repositorios duplicados"
+    echo "5) Salir"
     read -p "Opción: " option
 
     case $option in
@@ -110,6 +131,9 @@ while true; do
             repair_repos
             ;;
         4)
+            fix_duplicate_repos
+            ;;
+        5)
             echo "Saliendo..."
             exit 0
             ;;
