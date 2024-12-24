@@ -2,7 +2,14 @@
 
 # Cambiar permisos para hacer el script ejecutable
 chmod +x $0
-sudo apt install figlet -y 
+
+# Función para instalar figlet si no está instalado
+install_figlet() {
+    if ! command -v figlet &> /dev/null; then
+        echo "Instalando figlet..."
+        apt install figlet -y
+    fi
+}
 
 # Función para mostrar el mensaje en letras grandes usando figlet
 show_title() {
@@ -104,6 +111,9 @@ fix_duplicate_repos() {
 
     echo "Repositorios duplicados arreglados."
 }
+
+# Instalar figlet si no está instalado
+install_figlet
 
 # Mostrar el título
 show_title
