@@ -85,6 +85,7 @@ repair_repos() {
     > /etc/apt/sources.list
 
     # Verificar cada repositorio
+    local inactive_repos=()
     for repo in "${repos[@]}"; do
         # Obtener la URL del repositorio
         url=$(echo $repo | awk '{print $2}')
@@ -95,11 +96,20 @@ repair_repos() {
             echo "$repo" >> /etc/apt/sources.list
         else
             echo "Repositorio inactivo: $url. Se eliminará."
+            inactive_repos+=("$url")
         fi
     done
 
     # Actualizar la lista de paquetes
     apt update
+
+    # Mostrar repositorios inactivos
+    if [ ${#inactive_repos[@]} -gt 0 ]; then
+        echo "Se encontraron los siguientes repositorios inactivos:"
+        for repo in "${inactive_repos[@]}"; do
+            echo "- $repo"
+        done
+    fi
 }
 
 # Función para arreglar repositorios duplicados
@@ -124,13 +134,19 @@ fix_duplicate_repos() {
     if [ -s "$duplicates_file" ]; then
         echo "Se encontraron los siguientes repositorios duplicados:"
         cat "$duplicates_file"
-        echo "Eliminando duplicados..."
-        for file in "${files[@]}"; do
-            if [ -f "$file" ]; then
-                awk '!seen[$0]++' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
-            fi
-        done
-        echo "Repositorios duplicados eliminados."
+        
+        read -p "¿Desea eliminar estos duplicados? (s/n): " confirm
+        if [[ "$confirm" =~ ^[Ss]$ ]]; then
+            echo "Eliminando duplicados..."
+            for file in "${files[@]}"; do
+                if [ -f "$file" ]; then
+                    awk '!seen[$0]++' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
+                fi
+            done
+            echo "Repositorios duplicados eliminados."
+        else
+            echo "No se eliminaron los repositorios duplicados."
+        fi
     else
         echo "No se encontraron repositorios duplicados."
     fi
