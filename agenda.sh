@@ -13,7 +13,7 @@ echo "Clonando el repositorio de BookMedic..."
 git clone https://github.com/jcares/agendamedica.git # Reemplaza con la URL correcta
 
 # Navegar al directorio del proyecto
-cd bookmedic || { echo "Error al entrar en el directorio bookmedic"; exit 1; }
+cd /root/bookmedik/ || { echo "Error al entrar en el directorio bookmedic"; exit 1; }
 
 # Crear un entorno virtual
 echo "Creando un entorno virtual..."
