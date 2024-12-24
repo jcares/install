@@ -23,8 +23,8 @@ python3 -m venv venv
 source /root/agendamedica/venv/bin/activate
 
 # Instalar las dependencias de Agenda Medica
-echo "Instalando dependencias de Agenda Medica..."
-pip install -r requirements.txt
+#echo "Instalando dependencias de Agenda Medica..."
+#pip install -r requirements.txt
 
 # Configuración inicial (si aplica)
 # Puedes agregar aquí pasos adicionales de configuración si son necesarios
