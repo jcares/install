@@ -42,17 +42,26 @@ show_network_config() {
     echo ""
 }
 
+# Función para obtener el nombre de la interfaz de red
+get_network_interface() {
+    # Obtener el nombre de la interfaz de red activa
+    ip -o -f inet addr show | awk '{print $2}' | head -n 1
+}
+
 # Función para editar la configuración de red
 edit_network_config() {
+    local interface=$(get_network_interface)
+    echo "Interfaz de red actual: $interface"
+    
     read -p "Ingrese la nueva dirección IP (ejemplo: 192.168.0.3): " new_ip
     read -p "Ingrese la nueva máscara de subred (ejemplo: 24): " new_mask
     read -p "Ingrese la nueva puerta de enlace (ejemplo: 192.168.0.1): " new_gateway
     read -p "Ingrese el nuevo servidor DNS (ejemplo: 192.168.1.254): " new_dns
 
     # Aplicar la nueva configuración
-    ip addr flush dev eth0
-    ip addr add $new_ip/$new_mask dev eth0
-    ip route add default via $new_gateway
+    ip addr flush dev "$interface"
+    ip addr add "$new_ip/$new_mask" dev "$interface"
+    ip route add default via "$new_gateway"
     echo -e "nameserver $new_dns\nnameserver 8.8.8.8" > /etc/resolv.conf
 
     echo "Configuración de red actualizada."
@@ -100,16 +109,31 @@ fix_duplicate_repos() {
         "/etc/apt/sources.list.d/pve-install-repo.list"
         "/etc/apt/sources.list.d/pve-no-subscription.list"
     )
+    local duplicates_file="/tmp/duplicados_repos.txt"
+    > "$duplicates_file"  # Crear o limpiar el archivo de duplicados
 
     for file in "${files[@]}"; do
         if [ -f "$file" ]; then
             echo "Revisando $file..."
-            # Comentar líneas duplicadas
-            awk '!seen[$0]++' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
+            # Identificar y guardar líneas duplicadas
+            awk 'seen[$0]++' "$file" >> "$duplicates_file"
         fi
     done
 
-    echo "Repositorios duplicados arreglados."
+    # Eliminar duplicados a partir de la lista
+    if [ -s "$duplicates_file" ]; then
+        echo "Se encontraron los siguientes repositorios duplicados:"
+        cat "$duplicates_file"
+        echo "Eliminando duplicados..."
+        for file in "${files[@]}"; do
+            if [ -f "$file" ]; then
+                awk '!seen[$0]++' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
+            fi
+        done
+        echo "Repositorios duplicados eliminados."
+    else
+        echo "No se encontraron repositorios duplicados."
+    fi
 }
 
 # Instalar figlet si no está instalado
