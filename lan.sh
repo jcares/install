@@ -152,6 +152,20 @@ fix_duplicate_repos() {
     fi
 }
 
+# Función para eliminar todos los repositorios
+remove_all_repos() {
+    echo "Eliminando todos los repositorios..."
+    > /etc/apt/sources.list
+    rm -f /etc/apt/sources.list.d/*.list
+    echo "Todos los repositorios han sido eliminados."
+}
+
+# Función para verificar conflictos en los repositorios
+check_repo_conflicts() {
+    echo "Verificando conflictos en los repositorios..."
+    apt update 2>&1 | grep -i "conflict"
+}
+
 # Instalar figlet si no está instalado
 install_figlet
 
@@ -165,7 +179,9 @@ while true; do
     echo "2) Editar configuración de red"
     echo "3) Reparar repositorios"
     echo "4) Arreglar repositorios duplicados"
-    echo "5) Salir"
+    echo "5) Eliminar todos los repositorios"
+    echo "6) Verificar conflictos en repositorios"
+    echo "7) Salir"
     read -p "Opción: " option
 
     case $option in
@@ -184,6 +200,12 @@ while true; do
             fix_duplicate_repos
             ;;
         5)
+            remove_all_repos
+            ;;
+        6)
+            check_repo_conflicts
+            ;;
+        7)
             echo "Saliendo..."
             exit 0
             ;;
