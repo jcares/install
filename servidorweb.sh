@@ -14,6 +14,11 @@ show_header
 read -p "Ingrese el subdominio (ej. srv2.gpsafechile.cl): " SUBDOMINIO
 read -p "Ingrese su dirección de correo para certificados SSL: " EMAIL
 
+# Configurar el nombre de la máquina
+HOSTNAME="srv2"
+sudo hostnamectl set-hostname $HOSTNAME
+echo "El nombre de la máquina se ha configurado como: $HOSTNAME"
+
 # Actualizar el sistema
 sudo apt update && sudo apt upgrade -y
 
@@ -86,12 +91,41 @@ for SUB in sn1 sn2; do
     sudo a2ensite $SUB.conf
 done
 
-# Configurar SSL con Let's Encrypt
-sudo apt install -y certbot python3-certbot-apache
-sudo certbot --apache -d $SUBDOMINIO -d ns1.$SUBDOMINIO -d ns2.$SUBDOMINIO --email $EMAIL --agree-tos --no-eff-email --redirect
+# Solicitar rutas de los archivos .crt y .key
+read -p "Ingrese la ruta completa del archivo .crt: " CRT_PATH
+read -p "Ingrese la ruta completa del archivo .key: " KEY_PATH
+
+# Verificar si los archivos existen
+if [[ ! -f "$CRT_PATH" || ! -f "$KEY_PATH" ]]; then
+    echo "Error: Uno o ambos archivos no existen. Por favor, verifique las rutas."
+    exit 1
+fi
+
+# Crear configuración de SSL
+SSL_CONFIG="<VirtualHost *:443>
+    ServerName $SUBDOMINIO
+    DocumentRoot /var/www/$SUBDOMINIO/sn1
+
+    SSLEngine on
+    SSLCertificateFile $CRT_PATH
+    SSLCertificateKeyFile $KEY_PATH
+
+    <Directory /var/www/$SUBDOMINIO/sn1>
+        AllowOverride All
+    </Directory>
+
+    ErrorLog ${APACHE_LOG_DIR}/error.log
+    CustomLog ${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>"
+
+# Guardar la configuración de SSL
+echo "$SSL_CONFIG" | sudo tee /etc/apache2/sites-available/$SUBDOMINIO-ssl.conf
+
+# Habilitar el sitio SSL
+sudo a2ensite $SUBDOMINIO-ssl.conf
 
 # Reiniciar Apache para aplicar cambios
 sudo systemctl restart apache2
 
 # Mensaje de éxito
-echo "Servidor web configurado para $SUBDOMINIO"
+echo "Servidor web configurado para $SUBDOMINIO con SSL"
