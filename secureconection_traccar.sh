@@ -160,14 +160,6 @@ check_service_status "ssl"
 # Habilitar mod_status
 enable_mod_status
 
-# Ejecutar el script secureconection_traccar.sh
-echo "Ejecutando el script de conexión seguro..."
-if ! sudo bash -c "$(wget -qLO - https://github.com/jcares/install/raw/refs/heads/master/secureconection_traccar.sh)"; then
-    handle_error "Ejecución del script de conexión seguro fallida"
-fi
-echo "Script de conexión seguro ejecutado."
-sleep 2
-
 # Reiniciar el servicio de Traccar
 echo "Reiniciando el servicio Traccar..."
 sudo systemctl restart traccar || handle_error "Error al reiniciar el servicio Traccar"
