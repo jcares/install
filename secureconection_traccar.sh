@@ -82,6 +82,22 @@ check_ports_in_use() {
     sudo netstat -tuln | grep ':80\|:443'
 }
 
+# Verificar el estado del servicio y su fuente
+check_service_status() {
+    echo "Verificando el estado del servicio Apache..."
+    systemctl status apache2
+    echo "Fuente de carga del servicio:"
+    systemctl show -p FragmentPath apache2.service
+}
+
+# Crear directorios necesarios y asignar permisos
+create_directories_and_permissions() {
+    echo "Creando directorios necesarios..."
+    sudo mkdir -p /var/www/srv2.gpsafechile.cl
+    sudo chmod 755 /var/www/srv2.gpsafechile.cl
+    echo "Directorios creados y permisos asignados."
+}
+
 # Detener el servicio de Apache
 if systemctl is-active --quiet apache2; then
     echo "Deteniendo el servicio Apache..."
@@ -107,6 +123,12 @@ check_apache_logs
 
 # Verificar puertos en uso
 check_ports_in_use
+
+# Verificar el estado del servicio y su fuente
+check_service_status
+
+# Crear directorios necesarios y asignar permisos
+create_directories_and_permissions
 
 # Agregar la configuración de Traccar al archivo de configuración existente
 echo "Agregando la configuración de Traccar al archivo de configuración..."
