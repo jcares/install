@@ -16,8 +16,8 @@ handle_error() {
 # Copiar certificados
 copy_certificates() {
     echo "Copiando certificados..."
-    sudo cp "$CRT_FILE" "/etc/ssl/certs/$CRT_FILE.crt" || handle_error "Error al copiar el certificado"
-    sudo cp "$KEY_FILE" "/etc/ssl/private/$CRT_FILE.key" || handle_error "Error al copiar la clave"
+    cp "$CRT_FILE" "/etc/ssl/certs/$CRT_FILE.crt" || handle_error "Error al copiar el certificado"
+    cp "$KEY_FILE" "/etc/ssl/private/$CRT_FILE.key" || handle_error "Error al copiar la clave"
     echo "Certificados copiados."
 }
 
