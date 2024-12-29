@@ -36,14 +36,16 @@ handle_error() {
     exit 1
 }
 
-# Verificar si Apache está instalado
-check_apache_installed() {
-    if ! command -v apache2 &> /dev/null; then
-        echo "Apache no está instalado. Instalando Apache..."
-        sudo apt update
-        sudo apt install -y apache2 || handle_error "Instalación de Apache fallida"
+# Función para verificar e instalar un servicio
+check_and_install_service() {
+    local service_name=$1
+    local install_command=$2
+
+    if ! systemctl is-active --quiet "$service_name"; then
+        echo "$service_name no está activo. Instalando..."
+        eval "$install_command" || handle_error "Instalación de $service_name fallida"
     else
-        echo "Apache ya está instalado."
+        echo "$service_name ya está activo."
     fi
 }
 
@@ -93,6 +95,27 @@ create_directories_and_permissions() {
     echo "Directorios creados y permisos asignados."
 }
 
+# Habilitar el módulo mod_status
+enable_mod_status() {
+    echo "Habilitando el módulo mod_status..."
+    sudo a2enmod status || handle_error "Error al habilitar mod_status"
+    echo "Módulo mod_status habilitado."
+    echo "Configurando el archivo de estado..."
+    sudo nano /etc/apache2/mods-enabled/status.conf
+}
+
+# Comenzar el proceso
+update_hosts_file
+update_hostname_file
+
+# Verificar e instalar servicios
+check_and_install_service "apache2" "sudo apt update && sudo apt install -y apache2"
+check_and_install_service "mysql" "sudo apt update && sudo apt install -y mysql-server"
+check_and_install_service "php8.3" "sudo apt update && sudo apt install -y php8.3 libapache2-mod-php8.3"
+check_and_install_service "php8.2" "sudo apt update && sudo apt install -y php8.2 libapache2-mod-php8.2"
+check_and_install_service "traccar" "sudo apt update && sudo apt install -y traccar"
+check_and_install_service "ssl" "sudo apt update && sudo apt install -y openssl"
+
 # Detener el servicio de Apache
 stop_apache_service() {
     if systemctl is-active --quiet apache2; then
@@ -106,27 +129,7 @@ stop_apache_service() {
     fi
 }
 
-# Verificar el estado de un servicio
-check_service_status() {
-    local service_name=$1
-    echo "Verificando el estado del servicio: $service_name"
-    sudo systemctl status "$service_name" || handle_error "Error al verificar el estado de $service_name"
-}
-
-# Habilitar el módulo mod_status
-enable_mod_status() {
-    echo "Habilitando el módulo mod_status..."
-    sudo a2enmod status || handle_error "Error al habilitar mod_status"
-    echo "Módulo mod_status habilitado."
-    echo "Configurando el archivo de estado..."
-    sudo nano /etc/apache2/mods-enabled/status.conf
-}
-
-# Comenzar el proceso
-check_apache_installed
-update_hosts_file
-update_hostname_file
-stop_apache_service
+# Comprobar la configuración de Apache y reiniciar
 check_apache_config
 check_apache_logs
 create_directories_and_permissions
@@ -151,13 +154,6 @@ echo "Reiniciando Apache para aplicar cambios..."
 sudo systemctl start apache2 || handle_error "Error al iniciar Apache"
 echo "Apache reiniciado."
 sleep 2
-
-# Verificar el estado de los servicios
-check_service_status "apache2"
-check_service_status "mysql"
-check_service_status "php7.4-fpm"  # Cambia según la versión de PHP que estés usando
-check_service_status "traccar"
-check_service_status "ssl"
 
 # Habilitar mod_status
 enable_mod_status
