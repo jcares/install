@@ -28,21 +28,56 @@ TRACCAR_VHOST="
 </IfModule>
 "
 
+# Función para manejar errores
+handle_error() {
+    echo "Ocurrió un error en la operación: $1"
+    echo "Verificando el estado del servicio..."
+    systemctl status "$1" || echo "No se pudo obtener el estado del servicio $1."
+    exit 1
+}
+
+# Verificar si el servicio de Traccar está en ejecución y detenerlo
+if systemctl is-active --quiet traccar; then
+    echo "Deteniendo el servicio Traccar..."
+    if ! sudo systemctl stop traccar; then
+        handle_error "traccar"
+    fi
+fi
+
+# Verificar si el servicio de Apache está en ejecución y detenerlo
+if systemctl is-active --quiet apache2; then
+    echo "Deteniendo el servicio Apache..."
+    if ! sudo systemctl stop apache2; then
+        handle_error "apache2"
+    fi
+fi
+
 # Agregar la configuración de Traccar al archivo de configuración existente
-echo "$TRACCAR_VHOST" >> $VHOST_CONF
+echo "$TRACCAR_VHOST" > $VHOST_CONF
 
 # Habilitar los módulos necesarios
-a2enmod proxy
-a2enmod proxy_http
-a2enmod proxy_wstunnel
-a2enmod ssl
+if ! sudo a2enmod proxy; then handle_error "a2enmod proxy"; fi
+if ! sudo a2enmod proxy_http; then handle_error "a2enmod proxy_http"; fi
+if ! sudo a2enmod proxy_wstunnel; then handle_error "a2enmod proxy_wstunnel"; fi
+if ! sudo a2enmod ssl; then handle_error "a2enmod ssl"; fi
 
 # Reiniciar Apache para aplicar cambios
-systemctl restart apache2
+if ! sudo systemctl restart apache2; then
+    handle_error "apache2"
+fi
 
-# Descargar y ejecutar el script secureconection_traccar.sh
-wget -qLO secureconection_traccar.sh https://github.com/jcares/install/raw/refs/heads/master/secureconection_traccar.sh
+# Asegurar que el script sea ejecutable
 chmod +x secureconection_traccar.sh
-sudo ./secureconection_traccar.sh
+
+# Ejecutar el script
+if ! sudo ./secureconection_traccar.sh; then
+    handle_error "secureconection_traccar.sh"
+fi
+
+# Reiniciar el servicio de Traccar
+echo "Reiniciando el servicio Traccar..."
+if ! sudo systemctl start traccar; then
+    handle_error "traccar"
+fi
 
 echo "Configuración de Traccar agregada, Apache reiniciado y script de conexión seguro ejecutado."
