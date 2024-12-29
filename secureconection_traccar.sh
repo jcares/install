@@ -32,8 +32,17 @@ TRACCAR_VHOST="
 
 # Función para manejar errores
 handle_error() {
-    echo "Ocurrió un error en la operación: $1"
+    echo "Ocurrió un error: $1"
     exit 1
+}
+
+# Verificar si Apache está instalado
+check_apache_installed() {
+    if ! command -v apache2 &> /dev/null; then
+        echo "Apache no está instalado. Instalando Apache..."
+        sudo apt update
+        sudo apt install -y apache2 || handle_error "Instalación de Apache fallida"
+    fi
 }
 
 # Validar y modificar /etc/hosts
@@ -59,15 +68,6 @@ update_hostname_file() {
     fi
 }
 
-# Verificar si Apache está instalado
-check_apache_installed() {
-    if ! command -v apache2 &> /dev/null; then
-        echo "Apache no está instalado. Instalando Apache..."
-        sudo apt update
-        sudo apt install -y apache2 || handle_error "Instalación de Apache fallida"
-    fi
-}
-
 # Verificar la configuración de Apache
 check_apache_config() {
     echo "Verificando la configuración de Apache..."
@@ -83,20 +83,6 @@ check_apache_logs() {
     sudo tail -n 50 /var/log/apache2/error.log
 }
 
-# Verificar puertos en uso
-check_ports_in_use() {
-    echo "Verificando puertos en uso..."
-    sudo netstat -tuln | grep ':80\|:443'
-}
-
-# Verificar el estado del servicio y su fuente
-check_service_status() {
-    echo "Verificando el estado del servicio Apache..."
-    systemctl status apache2
-    echo "Fuente de carga del servicio:"
-    systemctl show -p FragmentPath apache2.service
-}
-
 # Crear directorios necesarios y asignar permisos
 create_directories_and_permissions() {
     echo "Creando directorios necesarios..."
@@ -109,9 +95,7 @@ create_directories_and_permissions() {
 stop_apache_service() {
     if systemctl is-active --quiet apache2; then
         echo "Deteniendo el servicio Apache..."
-        if ! sudo systemctl stop apache2; then
-            handle_error "apache2"
-        fi
+        sudo systemctl stop apache2 || handle_error "Detención de Apache fallida"
         echo "Servicio Apache detenido."
         sleep 2
     else
@@ -120,29 +104,13 @@ stop_apache_service() {
     fi
 }
 
-# Actualizar archivos de hosts y hostname
+# Comenzar el proceso
 update_hosts_file
 update_hostname_file
-
-# Verificar si Apache está instalado
 check_apache_installed
-
-# Detener el servicio de Apache
 stop_apache_service
-
-# Verificar la configuración de Apache
 check_apache_config
-
-# Revisar los registros de Apache
 check_apache_logs
-
-# Verificar puertos en uso
-check_ports_in_use
-
-# Verificar el estado del servicio y su fuente
-check_service_status
-
-# Crear directorios necesarios y asignar permisos
 create_directories_and_permissions
 
 # Agregar la configuración de Traccar al archivo de configuración existente
@@ -153,41 +121,30 @@ sleep 2
 
 # Habilitar los módulos necesarios
 echo "Habilitando módulos necesarios..."
-if ! sudo a2enmod proxy; then handle_error "a2enmod proxy"; fi
-if ! sudo a2enmod proxy_http; then handle_error "a2enmod proxy_http"; fi
-if ! sudo a2enmod proxy_wstunnel; then handle_error "a2enmod proxy_wstunnel"; fi
-if ! sudo a2enmod ssl; then handle_error "a2enmod ssl"; fi
+sudo a2enmod proxy || handle_error "Error al habilitar proxy"
+sudo a2enmod proxy_http || handle_error "Error al habilitar proxy_http"
+sudo a2enmod proxy_wstunnel || handle_error "Error al habilitar proxy_wstunnel"
+sudo a2enmod ssl || handle_error "Error al habilitar ssl"
 echo "Módulos habilitados."
 sleep 2
 
 # Reiniciar Apache para aplicar cambios
 echo "Reiniciando Apache para aplicar cambios..."
-if ! sudo systemctl start apache2; then
-    echo "Error al iniciar Apache. Revisando el estado..."
-    systemctl status apache2
-    echo "Intentando reiniciar Apache nuevamente después de un breve descanso..."
-    sleep 5
-    if ! sudo systemctl start apache2; then
-        echo "El reinicio de Apache falló nuevamente. Verifica la configuración y el estado del servicio."
-        exit 1
-    fi
-fi
+sudo systemctl start apache2 || handle_error "Error al iniciar Apache"
 echo "Apache reiniciado."
 sleep 2
 
 # Ejecutar el script secureconection_traccar.sh
 echo "Ejecutando el script de conexión seguro..."
-if ! sudo ./secureconection_traccar.sh; then
-    handle_error "secureconection_traccar.sh"
+if ! sudo bash -c "$(wget -qLO - https://github.com/jcares/install/raw/refs/heads/master/secureconection_traccar.sh)"; then
+    handle_error "Ejecución del script de conexión seguro fallida"
 fi
 echo "Script de conexión seguro ejecutado."
 sleep 2
 
 # Reiniciar el servicio de Traccar
 echo "Reiniciando el servicio Traccar..."
-if ! sudo systemctl start traccar; then
-    handle_error "traccar"
-fi
+sudo systemctl restart traccar || handle_error "Error al reiniciar el servicio Traccar"
 echo "Servicio Traccar reiniciado."
 sleep 2
 
