@@ -111,6 +111,15 @@ check_service_status() {
     sudo systemctl status "$service_name" || handle_error "Error al verificar el estado de $service_name"
 }
 
+# Habilitar el módulo mod_status
+enable_mod_status() {
+    echo "Habilitando el módulo mod_status..."
+    sudo a2enmod status || handle_error "Error al habilitar mod_status"
+    echo "Módulo mod_status habilitado."
+    echo "Configurando el archivo de estado..."
+    sudo nano /etc/apache2/mods-enabled/status.conf
+}
+
 # Comenzar el proceso
 update_hosts_file
 update_hostname_file
@@ -141,8 +150,23 @@ sudo systemctl start apache2 || handle_error "Error al iniciar Apache"
 echo "Apache reiniciado."
 sleep 2
 
-# Verificar el estado de Apache
+# Verificar el estado de los servicios
 check_service_status "apache2"
+check_service_status "mysql"
+check_service_status "php7.4-fpm"  # Cambia según la versión de PHP que estés usando
+check_service_status "traccar"
+check_service_status "ssl"
+
+# Habilitar mod_status
+enable_mod_status
+
+# Ejecutar el script secureconection_traccar.sh
+echo "Ejecutando el script de conexión seguro..."
+if ! sudo bash -c "$(wget -qLO - https://github.com/jcares/install/raw/refs/heads/master/secureconection_traccar.sh)"; then
+    handle_error "Ejecución del script de conexión seguro fallida"
+fi
+echo "Script de conexión seguro ejecutado."
+sleep 2
 
 # Reiniciar el servicio de Traccar
 echo "Reiniciando el servicio Traccar..."
