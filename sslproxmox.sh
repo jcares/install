@@ -16,7 +16,7 @@ handle_error() {
 # Configurar Nginx
 configure_nginx() {
     echo "Configurando Nginx..."
-    sudo tee "$NGINX_CONF" > /dev/null <<EOL
+    tee "$NGINX_CONF" > /dev/null <<EOL
 server {
     listen 443 ssl;
     server_name $DOMAIN;
@@ -46,7 +46,7 @@ EOL
 enable_nginx_conf() {
     echo "Habilitando la configuración de Nginx..."
     if [ ! -f "$NGINX_ENABLED" ]; then
-        sudo ln -s "$NGINX_CONF" "$NGINX_ENABLED" || handle_error "Error al habilitar la configuración de Nginx"
+        ln -s "$NGINX_CONF" "$NGINX_ENABLED" || handle_error "Error al habilitar la configuración de Nginx"
         echo "Configuración de Nginx habilitada."
     else
         echo "La configuración de Nginx ya está habilitada."
@@ -56,7 +56,7 @@ enable_nginx_conf() {
 # Reiniciar Nginx
 restart_nginx() {
     echo "Reiniciando Nginx..."
-    sudo systemctl restart nginx || handle_error "Error al reiniciar Nginx"
+    systemctl restart nginx || handle_error "Error al reiniciar Nginx"
     echo "Nginx reiniciado."
 }
 
