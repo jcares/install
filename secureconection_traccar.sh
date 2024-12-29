@@ -122,6 +122,28 @@ install_ssl() {
     check_and_install_service "openssl" "sudo apt update && sudo apt install -y openssl"
 }
 
+# Configuración de Apache para Traccar
+configure_apache() {
+    SERVER_NAME=$(whiptail --inputbox "Ingrese el nombre del servidor (ej. traccar.midominio.com):" 8 60 "traccar.midominio.com" 3>&1 1>&2 2>&3)
+    SERVER_IP=$(whiptail --inputbox "Ingrese la IP del servidor:" 8 60 "0.0.0.0" 3>&1 1>&2 2>&3)
+
+    # Crear archivo de configuración para el sitio
+    CONFIG_FILE="/etc/apache2/sites-available/traccar.conf"
+    
+    echo "<VirtualHost *:80>
+        ServerName $SERVER_NAME
+        DocumentRoot /opt/traccar/web
+        <Directory /opt/traccar/web>
+            AllowOverride All
+        </Directory>
+    </VirtualHost>" | sudo tee $CONFIG_FILE
+
+    # Habilitar el sitio y el módulo de reescritura
+    sudo a2ensite traccar.conf
+    sudo a2enmod rewrite
+    sudo systemctl restart apache2
+}
+
 # Instalar servicios según la opción seleccionada
 if [[ "$INSTALL_MODE" == "all" ]]; then
     install_web_server
@@ -129,12 +151,14 @@ if [[ "$INSTALL_MODE" == "all" ]]; then
     install_php
     install_traccar
     install_ssl
+    configure_apache
 elif [[ "$INSTALL_MODE" == "individual" ]]; then
     install_web_server
     install_database
     install_php
     install_traccar
     install_ssl
+    configure_apache
 elif [[ "$INSTALL_MODE" == "repair" ]]; then
     whiptail --title "Reparación de Servicios" --msgbox "Funcionalidad de reparación no implementada." 8 45
 fi
