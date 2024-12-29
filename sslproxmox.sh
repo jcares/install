@@ -16,8 +16,8 @@ handle_error() {
 # Copiar certificados
 copy_certificates() {
     echo "Copiando certificados..."
-    sudo cp "$CRT_FILE" "/etc/ssl/certs/$DOMAIN.crt" || handle_error "Error al copiar el certificado"
-    sudo cp "$KEY_FILE" "/etc/ssl/private/$DOMAIN.key" || handle_error "Error al copiar la clave"
+    sudo cp "$CRT_FILE" "/etc/ssl/certs/$CRT_FILE.crt" || handle_error "Error al copiar el certificado"
+    sudo cp "$KEY_FILE" "/etc/ssl/private/$CRT_FILE.key" || handle_error "Error al copiar la clave"
     echo "Certificados copiados."
 }
 
@@ -29,8 +29,8 @@ server {
     listen 443 ssl;
     server_name $DOMAIN;
 
-    ssl_certificate /etc/ssl/certs/$DOMAIN.crt;
-    ssl_certificate_key /etc/ssl/private/$DOMAIN.key;
+    ssl_certificate /etc/ssl/certs/$CRT_FILE.crt;
+    ssl_certificate_key /etc/ssl/private/$CRT_FILE.key;
 
     location / {
         proxy_pass https://127.0.0.1:8006;  # Puerto de Proxmox
