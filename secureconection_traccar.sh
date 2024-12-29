@@ -4,18 +4,20 @@
 VHOST_CONF="/etc/apache2/sites-available/srv2.gpsafechile.cl.conf"
 HOSTS_FILE="/etc/hosts"
 HOSTNAME_FILE="/etc/hostname"
+SERVER_NAME=$(whiptail --inputbox "Ingrese el nombre del servidor (ej. srv2.gpsafechile.cl):" 8 60 "srv2.gpsafechile.cl" --title "Configuración de Servidor" 3>&1 1>&2 2>&3)
+
 TRACCAR_VHOST="
 <VirtualHost *:80>
-    ServerName srv2.gpsafechile.cl
-    Redirect / https://srv2.gpsafechile.cl/
+    ServerName $SERVER_NAME
+    Redirect / https://$SERVER_NAME/
 </VirtualHost>
 
 <IfModule mod_ssl.c>
     <VirtualHost _default_:443>
-        ServerName srv2.gpsafechile.cl
+        ServerName $SERVER_NAME
         ServerAdmin webmaster@localhost
 
-        DocumentRoot /var/www/srv2.gpsafechile.cl
+        DocumentRoot /var/www/$SERVER_NAME
 
         ProxyPass /api/socket ws://localhost:8082/api/socket
         ProxyPassReverse /api/socket ws://localhost:8082/api/socket
@@ -51,24 +53,24 @@ check_and_install_service() {
 
 # Validar y modificar /etc/hosts
 update_hosts_file() {
-    if ! grep -q "srv2.gpsafechile.cl" "$HOSTS_FILE"; then
-        echo "Agregando srv2.gpsafechile.cl al archivo /etc/hosts..."
-        echo "127.0.0.1 srv2.gpsafechile.cl" | sudo tee -a "$HOSTS_FILE"
+    if ! grep -q "$SERVER_NAME" "$HOSTS_FILE"; then
+        echo "Agregando $SERVER_NAME al archivo /etc/hosts..."
+        echo "127.0.0.1 $SERVER_NAME" | sudo tee -a "$HOSTS_FILE"
         echo "Entrada agregada."
     else
-        echo "La entrada srv2.gpsafechile.cl ya existe en /etc/hosts."
+        echo "La entrada $SERVER_NAME ya existe en /etc/hosts."
     fi
 }
 
 # Validar y modificar /etc/hostname
 update_hostname_file() {
     current_hostname=$(cat "$HOSTNAME_FILE")
-    if [ "$current_hostname" != "srv2.gpsafechile.cl" ]; then
-        echo "Cambiando el hostname a srv2.gpsafechile.cl..."
-        echo "srv2.gpsafechile.cl" | sudo tee "$HOSTNAME_FILE"
+    if [ "$current_hostname" != "$SERVER_NAME" ]; then
+        echo "Cambiando el hostname a $SERVER_NAME..."
+        echo "$SERVER_NAME" | sudo tee "$HOSTNAME_FILE"
         echo "Hostname actualizado."
     else
-        echo "El hostname ya es srv2.gpsafechile.cl."
+        echo "El hostname ya es $SERVER_NAME."
     fi
 }
 
@@ -84,8 +86,8 @@ check_apache_config() {
 # Crear directorios necesarios y asignar permisos
 create_directories_and_permissions() {
     echo "Creando directorios necesarios..."
-    sudo mkdir -p /var/www/srv2.gpsafechile.cl
-    sudo chmod 755 /var/www/srv2.gpsafechile.cl
+    sudo mkdir -p /var/www/$SERVER_NAME
+    sudo chmod 755 /var/www/$SERVER_NAME
     echo "Directorios creados y permisos asignados."
 }
 
