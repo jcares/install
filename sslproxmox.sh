@@ -13,14 +13,6 @@ handle_error() {
     exit 1
 }
 
-# Copiar certificados
-copy_certificates() {
-    echo "Copiando certificados..."
-    cp "$CRT_FILE" "/etc/ssl/certs/$CRT_FILE.crt" || handle_error "Error al copiar el certificado"
-    cp "$KEY_FILE" "/etc/ssl/private/$CRT_FILE.key" || handle_error "Error al copiar la clave"
-    echo "Certificados copiados."
-}
-
 # Configurar Nginx
 configure_nginx() {
     echo "Configurando Nginx..."
