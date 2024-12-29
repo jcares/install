@@ -19,11 +19,26 @@ check_and_install_service() {
     fi
 }
 
+# Función para desinstalar un servicio
+uninstall_service() {
+    local service_name=$1
+    if command -v "$service_name" &> /dev/null; then
+        whiptail --title "Desinstalación de Servicios" --msgbox "Desinstalando $service_name..." 8 45
+        sudo apt remove --purge -y "$service_name" || handle_error "Desinstalación de $service_name fallida"
+    fi
+}
+
 # Instalar Whiptail si no está presente
 if ! command -v whiptail &> /dev/null; then
     sudo apt update
     sudo apt install -y whiptail || handle_error "Instalación de Whiptail fallida"
 fi
+
+# Desinstalar servicios existentes
+uninstall_service "apache2"
+uninstall_service "mysql-server"
+uninstall_service "mariadb-server"
+uninstall_service "php"
 
 # Instalar Unzip si no está presente
 check_and_install_service "unzip" "sudo apt update && sudo apt install -y unzip"
@@ -85,10 +100,10 @@ install_database() {
 
     case $DB_TYPE in
         mysql)
-            check_and_install_service "mysql" "sudo apt update && sudo apt install -y mysql-server"
+            check_and_install_service "mysql-server" "sudo apt update && sudo apt install -y mysql-server"
             ;;
         mariadb)
-            check_and_install_service "mariadb" "sudo apt update && sudo apt install -y mariadb-server"
+            check_and_install_service "mariadb-server" "sudo apt update && sudo apt install -y mariadb-server"
             ;;
     esac
 }
@@ -142,6 +157,9 @@ configure_apache() {
     sudo a2ensite traccar.conf
     sudo a2enmod rewrite
     sudo systemctl restart apache2
+
+    # Configurar el nombre del servidor en /etc/hosts
+    echo "$SERVER_IP $SERVER_NAME" | sudo tee -a /etc/hosts
 }
 
 # Instalar servicios según la opción seleccionada
