@@ -2,8 +2,8 @@
 
 # Variables
 DOMAIN="srv2.pccurico.cl"
-CRT_FILE="/ruta/a/tu/certificado.crt"
-KEY_FILE="/ruta/a/tu/clave.key"
+CRT_FILE="/etc/ca-certificates/srv2_pcc.crt"
+KEY_FILE="/etc/ca-certificates/srv2_pcc.key"
 NGINX_CONF="/etc/nginx/sites-available/proxmox"
 NGINX_ENABLED="/etc/nginx/sites-enabled/proxmox"
 
