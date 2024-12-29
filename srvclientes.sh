@@ -117,7 +117,7 @@ check_and_install_service "unzip" "sudo apt install -y unzip"
 
 # Descargar e instalar Traccar
 cd /tmp || handle_error "No se pudo cambiar al directorio temporal"
-sudo wget https://www.traccar.org/download/traccar-linux-64-latest.zip
+sudo wget https://www.traccar.org/download/traccar-linux-64-latest.zip || handle_error "Error al descargar Traccar"
 sudo unzip traccar-linux-64-latest.zip || handle_error "Error al descomprimir Traccar"
 cd traccar-* || handle_error "No se pudo acceder al directorio de Traccar"
 sudo ./traccar.run || handle_error "Error al ejecutar el instalador de Traccar"
