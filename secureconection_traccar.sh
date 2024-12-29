@@ -61,6 +61,27 @@ update_hostname_file() {
     fi
 }
 
+# Verificar la configuración de Apache
+check_apache_config() {
+    echo "Verificando la configuración de Apache..."
+    if ! sudo apachectl configtest; then
+        handle_error "Error en la configuración de Apache"
+    fi
+    echo "Configuración de Apache válida."
+}
+
+# Revisar los archivos de registro de Apache
+check_apache_logs() {
+    echo "Revisando los registros de error de Apache..."
+    sudo tail -n 50 /var/log/apache2/error.log
+}
+
+# Verificar puertos en uso
+check_ports_in_use() {
+    echo "Verificando puertos en uso..."
+    sudo netstat -tuln | grep ':80\|:443'
+}
+
 # Detener el servicio de Apache
 if systemctl is-active --quiet apache2; then
     echo "Deteniendo el servicio Apache..."
@@ -77,6 +98,15 @@ fi
 # Actualizar archivos de hosts y hostname
 update_hosts_file
 update_hostname_file
+
+# Verificar la configuración de Apache
+check_apache_config
+
+# Revisar los registros de Apache
+check_apache_logs
+
+# Verificar puertos en uso
+check_ports_in_use
 
 # Agregar la configuración de Traccar al archivo de configuración existente
 echo "Agregando la configuración de Traccar al archivo de configuración..."
@@ -95,12 +125,12 @@ sleep 2
 
 # Reiniciar Apache para aplicar cambios
 echo "Reiniciando Apache para aplicar cambios..."
-if ! sudo systemctl restart apache2; then
-    echo "Error al reiniciar Apache. Revisando el estado..."
+if ! sudo systemctl start apache2; then
+    echo "Error al iniciar Apache. Revisando el estado..."
     systemctl status apache2
     echo "Intentando reiniciar Apache nuevamente después de un breve descanso..."
     sleep 5
-    if ! sudo systemctl restart apache2; then
+    if ! sudo systemctl start apache2; then
         echo "El reinicio de Apache falló nuevamente. Verifica la configuración y el estado del servicio."
         exit 1
     fi
