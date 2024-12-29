@@ -42,6 +42,8 @@ check_apache_installed() {
         echo "Apache no está instalado. Instalando Apache..."
         sudo apt update
         sudo apt install -y apache2 || handle_error "Instalación de Apache fallida"
+    else
+        echo "Apache ya está instalado."
     fi
 }
 
@@ -121,9 +123,9 @@ enable_mod_status() {
 }
 
 # Comenzar el proceso
+check_apache_installed
 update_hosts_file
 update_hostname_file
-check_apache_installed
 stop_apache_service
 check_apache_config
 check_apache_logs
@@ -159,14 +161,5 @@ check_service_status "ssl"
 
 # Habilitar mod_status
 enable_mod_status
-
-# Reiniciar el servicio de Traccar
-echo "Reiniciando el servicio Traccar..."
-sudo systemctl restart traccar || handle_error "Error al reiniciar el servicio Traccar"
-echo "Servicio Traccar reiniciado."
-sleep 2
-
-# Verificar el estado de Traccar
-check_service_status "traccar"
 
 echo "Configuración de Traccar completada y servicios reiniciados."
