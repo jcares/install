@@ -16,8 +16,8 @@ handle_error() {
 # Copiar certificados
 copy_certificates() {
     echo "Copiando certificados..."
-    sudo cp "$CRT_FILE" /etc/ssl/certs/$DOMAIN.crt || handle_error "Error al copiar el certificado"
-    sudo cp "$KEY_FILE" /etc/ssl/private/$DOMAIN.key || handle_error "Error al copiar la clave"
+    sudo cp "$CRT_FILE" "/etc/ssl/certs/$DOMAIN.crt" || handle_error "Error al copiar el certificado"
+    sudo cp "$KEY_FILE" "/etc/ssl/private/$DOMAIN.key" || handle_error "Error al copiar la clave"
     echo "Certificados copiados."
 }
 
@@ -53,8 +53,12 @@ EOL
 # Habilitar configuración de Nginx
 enable_nginx_conf() {
     echo "Habilitando la configuración de Nginx..."
-    sudo ln -s "$NGINX_CONF" "$NGINX_ENABLED" || handle_error "Error al habilitar la configuración de Nginx"
-    echo "Configuración de Nginx habilitada."
+    if [ ! -f "$NGINX_ENABLED" ]; then
+        sudo ln -s "$NGINX_CONF" "$NGINX_ENABLED" || handle_error "Error al habilitar la configuración de Nginx"
+        echo "Configuración de Nginx habilitada."
+    else
+        echo "La configuración de Nginx ya está habilitada."
+    fi
 }
 
 # Reiniciar Nginx
