@@ -116,17 +116,9 @@ check_and_install_service "openssl" "sudo apt install -y openssl"
 check_and_install_service "unzip" "sudo apt install -y unzip"
 
 # Descargar e instalar Traccar
-cd /tmp || handle_error "No se pudo cambiar al directorio temporal"
+cd /root || handle_error "No se pudo cambiar al directorio temporal"
 sudo wget https://www.traccar.org/download/traccar-linux-64-latest.zip || handle_error "Error al descargar Traccar"
-sudo unzip traccar-linux-64-latest.zip || handle_error "Error al descomprimir Traccar"
-
-# Listar contenido del directorio descomprimido
-cd /tmp || handle_error "No se pudo cambiar al directorio temporal"
-ls -l || handle_error "No se pudo listar el contenido del directorio temporal"
-
-# Cambiar al directorio correcto
-traccar_dir=$(unzip -Z -1 traccar-linux-64-latest.zip | head -n 1 | cut -d'/' -f1)
-cd "$traccar_dir" || handle_error "No se pudo acceder al directorio de Traccar"
+sudo unzip traccar-linux-*.zip || handle_error "Error al descomprimir Traccar"
 
 # Ejecutar el instalador de Traccar
 sudo ./traccar.run || handle_error "Error al ejecutar el instalador de Traccar"
