@@ -107,7 +107,7 @@ update_hostname_file
 check_and_install_service "apache2" "sudo apt update && sudo apt install -y apache2"
 check_and_install_service "mysql" "sudo apt update && sudo apt install -y mysql-server"
 sudo apt install curl gpg gnupg2 software-properties-common ca-certificates apt-transport-https lsb-release -y
-&& add-apt-repository ppa:ondrej/php &&apt update -uy
+&& add-apt-repository ppa:ondrej/php && apt update -uy
 check_and_install_service "php8.3" "sudo apt update && sudo apt install -y php8.3 libapache2-mod-php8.3"
 check_and_install_service "php8.2" "sudo apt update && sudo apt install -y php8.2 libapache2-mod-php8.2"
 check_and_install_service "openssl" "sudo apt update && sudo apt install -y openssl"
