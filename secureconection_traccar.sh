@@ -28,8 +28,8 @@ fi
 # Info inicial
 whiptail --title "Bienvenida" --msgbox "Este script instalará y configurará Traccar en su servidor." 8 60
 
-# Preguntar al usuario la URL del repositorio de Traccar
-TRACCAR_REPO=$(whiptail --title "URL del Repositorio" --inputbox "Ingrese la URL del repositorio de Traccar:" 10 60 "http://repositorio.traccar.org" 3>&1 1>&2 2>&3)
+# URL predeterminada para descargar Traccar
+TRACCAR_URL="https://www.traccar.org/download/traccar-linux-64-latest.zip"
 
 # Seleccionar modo de instalación
 ACTION=$(whiptail --title "Opciones de Instalación" --menu "Seleccione una opción:" 15 60 4 \
@@ -99,11 +99,16 @@ install_php() {
 
 # Función para instalar Traccar
 install_traccar() {
-    if whiptail --title "Instalación de Traccar" --yesno "¿Desea instalar Traccar desde $TRACCAR_REPO?" 8 60; then
-        check_and_install_service "traccar" "sudo apt update && sudo apt install -y traccar"
-    else
-        whiptail --title "Instalación de Traccar" --msgbox "Instalación de Traccar cancelada." 8 45
-    fi
+    whiptail --title "Instalación de Traccar" --msgbox "Descargando Traccar desde $TRACCAR_URL..." 8 60
+    sudo wget "$TRACCAR_URL" -O traccar-linux.zip || handle_error "Error al descargar Traccar"
+
+    whiptail --title "Descomprimiendo Traccar" --msgbox "Descomprimiendo Traccar..." 8 60
+    sudo unzip traccar-linux.zip || handle_error "Error al descomprimir Traccar"
+
+    whiptail --title "Ejecutando Instalador de Traccar" --msgbox "Ejecutando el instalador..." 8 60
+    sudo ./traccar.run || handle_error "Error al ejecutar el instalador de Traccar"
+
+    whiptail --title "Instalación de Traccar" --msgbox "Traccar instalado exitosamente." 8 45
 }
 
 # Función para configurar SSL
