@@ -103,18 +103,24 @@ update_hosts_file
 update_hostname_file
 
 # Verificar e instalar servicios
-
 check_and_install_service "apache2" "sudo apt update && sudo apt install -y apache2"
 check_and_install_service "mysql" "sudo apt update && sudo apt install -y mysql-server"
-sudo apt install curl gpg gnupg2 software-properties-common ca-certificates apt-transport-https lsb-release -y
-&& add-apt-repository ppa:ondrej/php && apt update -uy
-check_and_install_service "php8.3" "sudo apt update && sudo apt install -y php8.3 libapache2-mod-php8.3"
-check_and_install_service "php8.2" "sudo apt update && sudo apt install -y php8.2 libapache2-mod-php8.2"
-check_and_install_service "openssl" "sudo apt update && sudo apt install -y openssl"
-check_and_install_service "gpsafe" "sudo apt update && sudo wget https://www.traccar.org/download/traccar-linux-64-latest.zip"
-check_and_install_service "unzip" "sudo apt update && sudo apt install -y unzip"
-check_and_install_service "sudo unzip traccar-linux-*.zip && ./traccar.run"
 
+# Instalar dependencias necesarias
+sudo apt update && sudo apt install -y curl gpg gnupg2 software-properties-common ca-certificates apt-transport-https lsb-release
+sudo add-apt-repository ppa:ondrej/php -y && sudo apt update
+
+check_and_install_service "php8.3" "sudo apt install -y php8.3 libapache2-mod-php8.3"
+check_and_install_service "php8.2" "sudo apt install -y php8.2 libapache2-mod-php8.2"
+check_and_install_service "openssl" "sudo apt install -y openssl"
+check_and_install_service "unzip" "sudo apt install -y unzip"
+
+# Descargar e instalar Traccar
+cd /tmp || handle_error "No se pudo cambiar al directorio temporal"
+sudo wget https://www.traccar.org/download/traccar-linux-64-latest.zip
+sudo unzip traccar-linux-64-latest.zip || handle_error "Error al descomprimir Traccar"
+cd traccar-* || handle_error "No se pudo acceder al directorio de Traccar"
+sudo ./traccar.run || handle_error "Error al ejecutar el instalador de Traccar"
 
 # Comprobar la configuración de Apache y reiniciar
 check_apache_config
