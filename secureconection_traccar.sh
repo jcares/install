@@ -33,8 +33,6 @@ TRACCAR_VHOST="
 # Función para manejar errores
 handle_error() {
     echo "Ocurrió un error en la operación: $1"
-    echo "Verificando el estado del servicio..."
-    systemctl status "$1" || echo "No se pudo obtener el estado del servicio $1."
     exit 1
 }
 
@@ -61,10 +59,19 @@ update_hostname_file() {
     fi
 }
 
+# Verificar si Apache está instalado
+check_apache_installed() {
+    if ! command -v apache2 &> /dev/null; then
+        echo "Apache no está instalado. Instalando Apache..."
+        sudo apt update
+        sudo apt install -y apache2 || handle_error "Instalación de Apache fallida"
+    fi
+}
+
 # Verificar la configuración de Apache
 check_apache_config() {
     echo "Verificando la configuración de Apache..."
-    if ! sudo apachectl configtest; then
+    if ! sudo apache2ctl configtest; then
         handle_error "Error en la configuración de Apache"
     fi
     echo "Configuración de Apache válida."
@@ -99,21 +106,29 @@ create_directories_and_permissions() {
 }
 
 # Detener el servicio de Apache
-if systemctl is-active --quiet apache2; then
-    echo "Deteniendo el servicio Apache..."
-    if ! sudo systemctl stop apache2; then
-        handle_error "apache2"
+stop_apache_service() {
+    if systemctl is-active --quiet apache2; then
+        echo "Deteniendo el servicio Apache..."
+        if ! sudo systemctl stop apache2; then
+            handle_error "apache2"
+        fi
+        echo "Servicio Apache detenido."
+        sleep 2
+    else
+        echo "El servicio Apache no estaba activo."
+        sleep 2
     fi
-    echo "Servicio Apache detenido."
-    sleep 2
-else
-    echo "El servicio Apache no estaba activo."
-    sleep 2
-fi
+}
 
 # Actualizar archivos de hosts y hostname
 update_hosts_file
 update_hostname_file
+
+# Verificar si Apache está instalado
+check_apache_installed
+
+# Detener el servicio de Apache
+stop_apache_service
 
 # Verificar la configuración de Apache
 check_apache_config
