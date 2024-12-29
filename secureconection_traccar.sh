@@ -2,6 +2,8 @@
 
 # Variables
 VHOST_CONF="/etc/apache2/sites-available/srv2.gpsafechile.cl.conf"
+HOSTS_FILE="/etc/hosts"
+HOSTNAME_FILE="/etc/hostname"
 TRACCAR_VHOST="
 <VirtualHost *:80>
     ServerName srv2.gpsafechile.cl
@@ -36,18 +38,28 @@ handle_error() {
     exit 1
 }
 
-# Detener el servicio de Traccar
-if systemctl is-active --quiet traccar; then
-    echo "Deteniendo el servicio Traccar..."
-    if ! sudo systemctl stop traccar; then
-        handle_error "traccar"
+# Validar y modificar /etc/hosts
+update_hosts_file() {
+    if ! grep -q "srv2.gpsafechile.cl" "$HOSTS_FILE"; then
+        echo "Agregando srv2.gpsafechile.cl al archivo /etc/hosts..."
+        echo "127.0.0.1 srv2.gpsafechile.cl" | sudo tee -a "$HOSTS_FILE"
+        echo "Entrada agregada."
+    else
+        echo "La entrada srv2.gpsafechile.cl ya existe en /etc/hosts."
     fi
-    echo "Servicio Traccar detenido."
-    sleep 2
-else
-    echo "El servicio Traccar no estaba activo."
-    sleep 2
-fi
+}
+
+# Validar y modificar /etc/hostname
+update_hostname_file() {
+    current_hostname=$(cat "$HOSTNAME_FILE")
+    if [ "$current_hostname" != "srv2.gpsafechile.cl" ]; then
+        echo "Cambiando el hostname a srv2.gpsafechile.cl..."
+        echo "srv2.gpsafechile.cl" | sudo tee "$HOSTNAME_FILE"
+        echo "Hostname actualizado."
+    else
+        echo "El hostname ya es srv2.gpsafechile.cl."
+    fi
+}
 
 # Detener el servicio de Apache
 if systemctl is-active --quiet apache2; then
@@ -62,9 +74,13 @@ else
     sleep 2
 fi
 
+# Actualizar archivos de hosts y hostname
+update_hosts_file
+update_hostname_file
+
 # Agregar la configuración de Traccar al archivo de configuración existente
 echo "Agregando la configuración de Traccar al archivo de configuración..."
-echo "$TRACCAR_VHOST" > $VHOST_CONF
+echo "$TRACCAR_VHOST" | sudo tee "$VHOST_CONF" > /dev/null
 echo "Configuración de Traccar agregada."
 sleep 2
 
@@ -108,12 +124,4 @@ fi
 echo "Servicio Traccar reiniciado."
 sleep 2
 
-# Reiniciar el servicio de Apache
-echo "Reiniciando el servicio Apache..."
-if ! sudo systemctl start apache2; then
-    handle_error "apache2"
-fi
-echo "Servicio Apache reiniciado."
-sleep 2
-
-echo "Configuración de Traccar completada, servicios reiniciados y script de conexión seguro ejecutado."
+echo "Configuración de Traccar completada y servicios reiniciados."
