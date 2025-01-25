@@ -4,8 +4,8 @@
 USER="root"                  # Usuario para ambos servidores
 IP_UBUNTU="192.168.0.254"    # IP del servidor Ubuntu
 IP_CENTOS="172.16.1.254"     # IP del servidor CentOS
-RUTA_COPIA="/ruta/a/tu/carpeta" # Cambia esto por la ruta que deseas copiar
-RUTA_DESTINO="/ruta/de/destino" # Cambia esto por la ruta de destino en Ubuntu
+RUTA_COPIA="/" # Cambia esto por la ruta que deseas copiar
+RUTA_DESTINO="/" # Cambia esto por la ruta de destino en Ubuntu
 
 # 1. Actualizar CentOS
 echo "Actualizando CentOS..."
