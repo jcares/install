@@ -18,7 +18,7 @@ EOF
 clear
 header_info
 echo -e "Loading..."
-GEN_MAC=$(echo '00 60 2f'$(od -An -N3 -t xC /dev/urandom) | sed -e 's/ /:/g' | tr '[:lower:]' '[:upper:]')
+GEN_MAC=$(echo '00:60:2f:'$(od -An -N3 -t xC /dev/urandom | sed -e 's/ /:/g' | tr '[:lower:]' '[:upper:]'))
 NEXTID=$(pvesh get /cluster/nextid)
 YW=$(echo "\033[33m")
 BL=$(echo "\033[36m")
@@ -292,13 +292,13 @@ msg_info "Creating Mikrotik RouterOS CHR VM"
 qm create $VMID -tablet 0 -localtime 1 -cores $CORE_COUNT -memory $RAM_SIZE -name $HN \
   -tags proxmox-helper-scripts \
   -net0 virtio,bridge=$BRG,macaddr=$MAC$VLAN$MTU \
-  -net1 virtio,bridge=$BRG,macaddr=$(echo '00:60:2f:$(od -An -N3 -t xC /dev/urandom | sed -e "s/ /:/g" | tr "[:lower:]" "[:upper:]")') \
-  -net2 virtio,bridge=$BRG,macaddr=$(echo '00:60:2f:$(od -An -N3 -t xC /dev/urandom | sed -e "s/ /:/g" | tr "[:lower:]" "[:upper:]")') \
-  -net3 virtio,bridge=$BRG,macaddr=$(echo '00:60:2f:$(od -An -N3 -t xC /dev/urandom | sed -e "s/ /:/g" | tr "[:lower:]" "[:upper:]")') \
-  -net4 virtio,bridge=$BRG,macaddr=$(echo '00:60:2f:$(od -An -N3 -t xC /dev/urandom | sed -e "s/ /:/g" | tr "[:lower:]" "[:upper:]")') \
-  -net5 virtio,bridge=$BRG,macaddr=$(echo '00:60:2f:$(od -An -N3 -t xC /dev/urandom | sed -e "s/ /:/g" | tr "[:lower:]" "[:upper:]")') \
-  -net6 virtio,bridge=$BRG,macaddr=$(echo '00:60:2f:$(od -An -N3 -t xC /dev/urandom | sed -e "s/ /:/g" | tr "[:lower:]" "[:upper:]")') \
-  -net7 virtio,bridge=$BRG,macaddr=$(echo '00:60:2f:$(od -An -N3 -t xC /dev/urandom | sed -e "s/ /:/g" | tr "[:lower:]" "[:upper:]")') \
+  -net1 virtio,bridge=$BRG,macaddr=$(echo '00:60:2f:'$(od -An -N3 -t xC /dev/urandom | sed -e 's/ /:/g' | tr '[:lower:]' '[:upper:]')) \
+  -net2 virtio,bridge=$BRG,macaddr=$(echo '00:60:2f:'$(od -An -N3 -t xC /dev/urandom | sed -e 's/ /:/g' | tr '[:lower:]' '[:upper:]')) \
+  -net3 virtio,bridge=$BRG,macaddr=$(echo '00:60:2f:'$(od -An -N3 -t xC /dev/urandom | sed -e 's/ /:/g' | tr '[:lower:]' '[:upper:]')) \
+  -net4 virtio,bridge=$BRG,macaddr=$(echo '00:60:2f:'$(od -An -N3 -t xC /dev/urandom | sed -e 's/ /:/g' | tr '[:lower:]' '[:upper:]')) \
+  -net5 virtio,bridge=$BRG,macaddr=$(echo '00:60:2f:'$(od -An -N3 -t xC /dev/urandom | sed -e 's/ /:/g' | tr '[:lower:]' '[:upper:]')) \
+  -net6 virtio,bridge=$BRG,macaddr=$(echo '00:60:2f:'$(od -An -N3 -t xC /dev/urandom | sed -e 's/ /:/g' | tr '[:lower:]' '[:upper:]')) \
+  -net7 virtio,bridge=$BRG,macaddr=$(echo '00:60:2f:'$(od -An -N3 -t xC /dev/urandom | sed -e 's/ /:/g' | tr '[:lower:]' '[:upper:]')) \
   -onboot 1 -ostype l26 -scsihw virtio-scsi-pci
 
 qm importdisk $VMID ${FILE%.*} $STORAGE ${DISK_IMPORT:-} 1>&/dev/null
@@ -320,3 +320,4 @@ if [ "$START_VM" == "yes" ]; then
 fi
 
 msg_ok "Completed Successfully!\n"
+
