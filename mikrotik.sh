@@ -201,7 +201,7 @@ msg_info "Creating Mikrotik RouterOS CHR VM"
 
 # Crear la máquina virtual con 8 interfaces adicionales
 NET_CONFIG=""
-for i in {0..7}; do
+for i in $(seq 0 7); do
   MAC_ADDR=$(echo '00:60:2f:'$(od -An -N3 -t xC /dev/urandom | sed -e 's/ /:/g' | tr '[:lower:]' '[:upper:]'))
   NET_CONFIG+="-net$i virtio,bridge=$BRG,macaddr=$MAC_ADDR "
 done
