@@ -206,10 +206,10 @@ for i in $(seq 0 7); do
   NET_CONFIG+="-net$i virtio,bridge=$BRG,macaddr=$MAC_ADDR "
 done
 
+# Crear la VM
 qm create $VMID -tablet 0 -localtime 1 -cores $CORE_COUNT -memory $RAM_SIZE -name $HN \
   -tags proxmox-helper-scripts \
-  $NET_CONFIG \
-  -onboot 1 -ostype l26 -scsihw virtio-scsi-pci
+  -onboot 1 -ostype l26 -scsihw virtio-scsi-pci $NET_CONFIG
 
 qm importdisk $VMID ${FILE%.*} $STORAGE ${DISK_IMPORT:-} 1>&/dev/null
 qm set $VMID \
