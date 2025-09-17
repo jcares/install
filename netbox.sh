@@ -1,98 +1,110 @@
 #!/bin/bash
 
-# Variables
-NETBOX_DIR="/opt/netbox/netbox"
-VENV_DIR="/opt/netbox/venv"
-STATIC_ROOT="/opt/netbox/static"
-SERVER_USER="www-data"  # Cambia esto si tu servidor web usa otro usuario
+# Script para instalar NetBox en Ubuntu 24
 
-# Función para verificar el estado de un comando
-check_command() {
-    if [ $? -ne 0 ]; then
-        echo "Error: $1"
-        exit 1
-    fi
+# Función para solicitar datos de configuración
+function solicitar_datos() {
+    read -p "Ingrese la dirección de la base de datos (ej. localhost): " DB_HOST
+    read -p "Ingrese el nombre de la base de datos (ej. netbox): " DB_NAME
+    read -p "Ingrese el usuario de la base de datos: " DB_USER
+    read -sp "Ingrese la contraseña de la base de datos: " DB_PASSWORD
+    echo
+    read -p "Ingrese el nombre de dominio para NetBox (ej. netbox.example.com): " DOMAIN_NAME
 }
 
-# Crear el directorio de NetBox si no existe
-if [ ! -d "/opt/netbox" ]; then
-    echo "Creando directorio /opt/netbox..."
-    sudo mkdir -p /opt/netbox
-fi
+# Función para instalar dependencias
+function instalar_dependencias() {
+    sudo apt update
+    sudo apt install -y python3 python3-pip python3-venv git postgresql postgresql-contrib libpq-dev redis-server nginx
+}
 
-# Clonar el repositorio de NetBox si no existe
-if [ ! -d "$NETBOX_DIR" ]; then
-    echo "Clonando el repositorio de NetBox..."
-    git clone https://github.com/netbox-community/netbox.git "$NETBOX_DIR"
-    check_command "No se pudo clonar el repositorio de NetBox."
-fi
+# Función para configurar PostgreSQL
+function configurar_postgresql() {
+    sudo -u postgres psql -c "CREATE DATABASE $DB_NAME;"
+    sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';"
+    sudo -u postgres psql -c "ALTER ROLE $DB_USER SET client_encoding TO 'utf8';"
+    sudo -u postgres psql -c "ALTER ROLE $DB_USER SET default_transaction_isolation TO 'read committed';"
+    sudo -u postgres psql -c "ALTER ROLE $DB_USER SET timezone TO 'UTC';"
+    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;"
+}
 
-# Crear y activar el entorno virtual
-if [ ! -d "$VENV_DIR" ]; then
-    echo "Creando entorno virtual..."
-    python3 -m venv "$VENV_DIR"
-    check_command "No se pudo crear el entorno virtual."
-fi
+# Función para instalar NetBox
+function instalar_netbox() {
+    sudo mkdir /opt/netbox
+    sudo git clone -b master https://github.com/netbox-community/netbox.git /opt/netbox
+    cd /opt/netbox
+    sudo pip3 install -r requirements.txt
+}
 
-echo "Activando el entorno virtual..."
-source "$VENV_DIR/bin/activate"
+# Función para configurar NetBox
+function configurar_netbox() {
+    sudo cp /opt/netbox/netbox/netbox/configuration.example.py /opt/netbox/netbox/netbox/configuration.py
+    sudo sed -i "s/'NAME': 'netbox'/'NAME': '$DB_NAME'/g" /opt/netbox/netbox/netbox/configuration.py
+    sudo sed -i "s/'USER': 'netbox'/'USER': '$DB_USER'/g" /opt/netbox/netbox/netbox/configuration.py
+    sudo sed -i "s/# 'PASSWORD': ''/'PASSWORD': '$DB_PASSWORD'/g" /opt/netbox/netbox/netbox/configuration.py
+    sudo sed -i "s/'HOST': 'localhost'/'HOST': '$DB_HOST'/g" /opt/netbox/netbox/netbox/configuration.py
+    sudo sed -i "s/# 'ALLOWED_HOSTS': \[\]/'ALLOWED_HOSTS': ['$DOMAIN_NAME']/g" /opt/netbox/netbox/netbox/configuration.py
+}
 
-# Verificar si Django está instalado
-if ! python -m django --version &>/dev/null; then
-    echo "Django no está instalado. Instalando Django..."
-    pip install django
-    check_command "No se pudo instalar Django."
-else
-    echo "Django ya está instalado."
-fi
+# Función para inicializar la base de datos
+function inicializar_bd() {
+    cd /opt/netbox/netbox
+    sudo python3 manage.py migrate
+    sudo python3 manage.py createsuperuser
+    sudo python3 manage.py collectstatic --no-input
+}
 
-# Instalar dependencias de NetBox
-if [ -f "$NETBOX_DIR/requirements.txt" ]; then
-    echo "Instalando dependencias de NetBox..."
-    pip install -r "$NETBOX_DIR/requirements.txt"
-    check_command "No se pudieron instalar las dependencias de NetBox."
-else
-    echo "Error: El archivo requirements.txt no se encuentra en $NETBOX_DIR."
-    exit 1
-fi
+# Función para configurar Nginx
+function configurar_nginx() {
+    sudo bash -c "cat > /etc/nginx/sites-available/netbox <<EOF
+server {
+    listen 80;
+    server_name $DOMAIN_NAME;
 
-# Ejecutar la recopilación de archivos estáticos
-echo "Ejecutando collectstatic..."
-python "$NETBOX_DIR/manage.py" collectstatic --noinput
-check_command "Error al ejecutar collectstatic."
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF"
 
-# Verificar la existencia del archivo setmode.js
-if [ -f "$STATIC_ROOT/js/setmode.js" ]; then
-    echo "El archivo setmode.js existe en $STATIC_ROOT/js/setmode.js."
-else
-    echo "Error: El archivo setmode.js no se encuentra en $STATIC_ROOT/js/setmode.js."
-    echo "Buscando en el directorio de origen..."
-    if [ -f "$NETBOX_DIR/netbox/static/js/setmode.js" ]; then
-        echo "Copiando setmode.js al directorio de archivos estáticos..."
-        cp "$NETBOX_DIR/netbox/static/js/setmode.js" "$STATIC_ROOT/js/"
-        check_command "No se pudo copiar setmode.js."
-    else
-        echo "Error: El archivo setmode.js no se encuentra en el directorio de origen."
-        exit 1
-    fi
-fi
+    sudo ln -s /etc/nginx/sites-available/netbox /etc/nginx/sites-enabled/
+    sudo nginx -t
+    sudo systemctl restart nginx
+}
 
-# Configurar permisos para el directorio de archivos estáticos
-echo "Configurando permisos para el directorio de archivos estáticos..."
-sudo chown -R $SERVER_USER:$SERVER_USER "$STATIC_ROOT/"
-sudo chmod -R 755 "$STATIC_ROOT/"
-check_command "Error al configurar permisos."
+# Función para iniciar el servidor Gunicorn
+function iniciar_gunicorn() {
+    sudo bash -c "cat > /etc/systemd/system/netbox.service <<EOF
+[Unit]
+Description=NetBox WSGI service
+After=network.target
 
-# Verificar la configuración del servidor web
-echo "Por favor, asegúrate de que tu servidor web esté configurado para servir archivos estáticos desde $STATIC_ROOT."
-echo "Ejemplo de configuración para Nginx:"
-echo "location /static/ {"
-echo "    alias $STATIC_ROOT;"
-echo "}"
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/netbox/netbox
+ExecStart=/usr/bin/gunicorn --workers 3 --bind unix:/opt/netbox/netbox.sock netbox.wsgi:application
 
-# Reiniciar el servidor web
-echo "Reiniciando el servidor web..."
-sudo systemctl restart nginx  # Cambia esto a apache2 si usas Apache
-check_command "Error al reiniciar el servidor web."
+[Install]
+WantedBy=multi-user.target
+EOF"
 
-echo "Configuración completada. Por favor, verifica los registros del servidor si encuentras problemas."
+    sudo systemctl start netbox
+    sudo systemctl enable netbox
+}
+
+# Ejecución del script
+solicitar_datos
+instalar_dependencias
+configurar_postgresql
+instalar_netbox
+configurar_netbox
+inicializar_bd
+configurar_nginx
+iniciar_gunicorn
+
+echo "NetBox ha sido instalado y configurado correctamente."
