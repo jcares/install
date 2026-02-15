@@ -14,10 +14,6 @@ set -e
 SRC_REPO="https://github.com/jcares/web-gpsafe2026V6.11.1.git"
 SRC_DIR="/tmp/web-gpsafe2026V6.11.1"
 DEST_DIR="/opt/traccar/web"
-USER="traccar"
-GROUP="traccar"
-API_USER="usuario"        # Cambia aquí tu usuario API
-API_PASS="contraseña"     # Cambia aquí tu password API
 
 echo "==> Inicio de instalación desatendida GPSafe Web 6.11.1"
 
